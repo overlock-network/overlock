@@ -2,66 +2,109 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"crypto/sha256"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/near/borsh-go"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
+	"go.uber.org/zap"
 )
 
-func Register() {
-	endpoint := rpc.TestNet_RPC
-	client := rpc.New(endpoint)
+type RegisterProviderArgs struct {
+	Name            string
+	Ip              string
+	Port            uint16
+	Country         string
+	EnvironmentType string
+	Availability    bool
+}
 
-	parseUint32 := func(s string) uint32 {
-		val, err := strconv.ParseUint(s, 10, 32)
-		if err != nil {
-			return 0
-		}
-		return uint32(val)
+const maxInstructionSize = 10240
+
+func Register(logger zap.SugaredLogger, grpcAddress, programId, keyPath string, provider crossplanev1beta1.MsgCreateProvider) {
+	client := rpc.New(grpcAddress)
+	var availability bool
+	if provider.Availability == "available" {
+		availability = true
+	} else {
+		availability = false
 	}
 
-	providerMetadata := crossplanev1beta1.Metadata{
-		Name: "name",
+	args := RegisterProviderArgs{
+		Name:            provider.Metadata.Name,
+		Ip:              provider.Ip,
+		Port:            uint16(provider.Port),
+		Country:         provider.CountryCode,
+		EnvironmentType: provider.EnvironmentType,
+		Availability:    availability,
 	}
 
-	provider := crossplanev1beta1.MsgCreateProvider{
-		Metadata:        &providerMetadata,
-		Ip:              "0.0.0.0",
-		Port:            parseUint32("8900"),
-		CountryCode:     "MD",
-		EnvironmentType: "test",
-		Availability:    "available",
-	}
-	providerBytes, err := provider.Marshal()
+	hash := sha256.Sum256([]byte("global:register_provider"))
+	discriminator := hash[:8]
+
+	argsEncoded, err := borsh.Serialize(args)
 	if err != nil {
 		panic(err)
 	}
-	prikey, err := solana.PrivateKeyFromSolanaKeygenFile("~/.config/solana/id.json")
+
+	fullData := append(discriminator, argsEncoded...)
+
+	if len(fullData) > maxInstructionSize {
+		logger.Warnf("Instruction too large (%d bytes). Trimming", len(fullData))
+		fullData = fullData[:maxInstructionSize]
+	}
+
+	prikey, err := solana.PrivateKeyFromSolanaKeygenFile(keyPath)
 	if err != nil {
 		panic(err)
 	}
-	pubkey := prikey.PublicKey()
-	fmt.Println("Public key: ", pubkey.String())
+	payer := prikey.PublicKey()
+
+	providerAccount := solana.NewWallet()
+	providerPubkey := providerAccount.PublicKey()
+
+	ID := solana.MustPublicKeyFromBase58(programId)
 
 	instruction := solana.NewInstruction(
-		pubkey,
-		solana.AccountMetaSlice{},
-		providerBytes,
+		ID,
+		solana.AccountMetaSlice{
+			{PublicKey: payer, IsSigner: true, IsWritable: true},
+			{PublicKey: providerPubkey, IsSigner: true, IsWritable: true},
+			{PublicKey: solana.SystemProgramID, IsSigner: false, IsWritable: false},
+		},
+		fullData,
 	)
 
-	builder := solana.NewTransactionBuilder().AddInstruction(instruction).SetFeePayer(pubkey)
-	transaction, err := builder.Build()
+	out, err := client.GetLatestBlockhash(context.Background(), rpc.CommitmentFinalized)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Transaction is signed: ", transaction.IsSigner(pubkey))
 
-	sig, err := client.SendTransaction(context.TODO(), transaction)
+	txBuilder := solana.NewTransactionBuilder().
+		AddInstruction(instruction).
+		SetFeePayer(payer).
+		SetRecentBlockHash(out.Value.Blockhash)
+
+	transaction, err := txBuilder.Build()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("tx signature: ", sig.String())
 
+	transaction.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		switch {
+		case key.Equals(payer):
+			return &prikey
+		case key.Equals(providerPubkey):
+			return &providerAccount.PrivateKey
+		default:
+			return nil
+		}
+	})
+
+	sig, err := client.SendTransaction(context.Background(), transaction)
+	if err != nil {
+		panic(err)
+	}
+	logger.Infof("Transaction Signature: %s", sig.String())
 }

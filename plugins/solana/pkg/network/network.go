@@ -24,9 +24,8 @@ import (
 	prv "github.com/web-seven/overlock/plugins/solana/pkg/provider"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, provider crossplanev1beta1.MsgCreateProvider) {
-	prv.Register()
-	return
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, provider crossplanev1beta1.MsgCreateProvider, programId, keyPath string) {
+
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
@@ -62,7 +61,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 
 		logger.Info("Connected to WebSocket")
 		if !registered {
-			prv.Register()
+			prv.Register(*logger, grpcAddress, programId, keyPath, provider)
 			registered = true
 		}
 

@@ -315,6 +315,7 @@ require (
 	github.com/google/go-containerregistry v0.19.2
 	github.com/google/go-github/v61 v61.0.0
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/near/borsh-go v0.3.1
 	github.com/pterm/pterm v0.12.79
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rjeczalik/notify v0.9.3
