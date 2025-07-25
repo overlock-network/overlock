@@ -26,15 +26,18 @@ import (
 )
 
 type Environment struct {
-	name         string
-	engine       string
-	engineConfig string
-	httpPort     int
-	httpsPort    int
-	mountPath    string
-	context      string
-	options      EnvironmentOptions
-	disablePorts bool
+	name           string
+	engine         string
+	engineConfig   string
+	httpPort       int
+	httpsPort      int
+	mountPath      string
+	context        string
+	options        EnvironmentOptions
+	disablePorts   bool
+	configurations []string
+	functions      []string
+	providers      []string
 }
 
 // New Environment entity
@@ -169,6 +172,15 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	release, err := installer.GetRelease()
 	if err == nil {
 		params = release.Config
+	}
+	if configMap, ok := params["configuration"].(map[string]interface{}); ok {
+		configMap["packages"] = e.configurations
+	}
+	if providersMap, ok := params["providers"].(map[string]interface{}); ok {
+		providersMap["packages"] = e.providers
+	}
+	if functionsMap, ok := params["functions"].(map[string]interface{}); ok {
+		functionsMap["packages"] = e.functions
 	}
 
 	logger.Debug("Installing engine")
@@ -338,7 +350,20 @@ func (e *Environment) WithEngineConfig(engineConfig string) *Environment {
 	e.engineConfig = engineConfig
 	return e
 }
+func (e *Environment) WithConfigurations(configurations []string) *Environment {
+	e.configurations = configurations
+	return e
+}
 
+func (e *Environment) WithProviders(providers []string) *Environment {
+	e.providers = providers
+	return e
+}
+
+func (e *Environment) WithFunctions(functions []string) *Environment {
+	e.functions = functions
+	return e
+}
 func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
 	e.disablePorts = disablePorts
 	return e
