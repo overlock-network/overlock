@@ -22,10 +22,10 @@ jobs:
       - name: Generate Changelog
         id: changelog
         run: |
-          echo "Current tag: ${{ vars.GITHUB_REF_NAME }}"
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${{ vars.GITHUB_REF_NAME }}^" 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          echo "Current tag: ${{ github.ref_name }}"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || git rev-list --max-parents=0 HEAD)
           echo "Previous tag/commit: $PREVIOUS_TAG"
-          CHANGELOG_CONTENT=$(git log --pretty=format:'* %s (%h)' $PREVIOUS_TAG..${{ vars.GITHUB_REF_NAME }})
+          CHANGELOG_CONTENT=$(git log --pretty=format:'* %s (%h)' $PREVIOUS_TAG..${{ github.ref_name }})
 
           {
             echo 'changelog<<EOF'
@@ -36,8 +36,8 @@ jobs:
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ vars.GITHUB_REF_NAME }}
-          name: Release ${{ vars.GITHUB_REF_NAME }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           body: |
             ## Changelog
             ${{ steps.changelog.outputs.changelog }}
@@ -45,6 +45,7 @@ jobs:
 
   releases-matrix:
     name: Release Go Binary
+    needs: create-release
     needs: create-release
     runs-on: ubuntu-latest
     strategy:
@@ -65,7 +66,16 @@ jobs:
 
       - name: Set up Go
         uses: actions/setup-go@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
+          go-version: stable
+
+      - name: Build and Upload Release Asset
+        uses: wangyoucao577/go-release-action@v1
           go-version: stable
 
       - name: Build and Upload Release Asset
@@ -76,8 +86,15 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/overlock"
           binary_name: "overlock"
-          ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ vars.GITHUB_REF_NAME }}"
+          ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ github.ref_name }}"
 
+  notify:
+    name: Notify Discord
+    needs: releases-matrix
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Send Discord Notification
   notify:
     name: Notify Discord
     needs: releases-matrix
@@ -88,11 +105,11 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: |
-          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ vars.GITHUB_REF_NAME }}"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
           curl -H "Content-Type: application/json" \
             -X POST \
             -d @- $DISCORD_WEBHOOK <<EOF
           {
-            "content": "🚀 New release [${{ vars.GITHUB_REF_NAME }}]($RELEASE_URL)"
+            "content": "🚀 New release [${{ github.ref_name }}]($RELEASE_URL)"
           }
           EOF
