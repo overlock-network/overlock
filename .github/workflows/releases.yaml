@@ -46,7 +46,6 @@ jobs:
   releases-matrix:
     name: Release Go Binary
     needs: create-release
-    needs: create-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -66,16 +65,7 @@ jobs:
 
       - name: Set up Go
         uses: actions/setup-go@v5
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
         with:
-          go-version: stable
-
-      - name: Build and Upload Release Asset
-        uses: wangyoucao577/go-release-action@v1
           go-version: stable
 
       - name: Build and Upload Release Asset
@@ -88,13 +78,6 @@ jobs:
           binary_name: "overlock"
           ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ github.ref_name }}"
 
-  notify:
-    name: Notify Discord
-    needs: releases-matrix
-    runs-on: ubuntu-latest
-    if: success()
-    steps:
-      - name: Send Discord Notification
   notify:
     name: Notify Discord
     needs: releases-matrix
