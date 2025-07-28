@@ -10,8 +10,42 @@ permissions:
     packages: write
     
 jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          echo "Current tag: ${{ vars.GITHUB_REF_NAME }}"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${{ vars.GITHUB_REF_NAME }}^" 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          echo "Previous tag/commit: $PREVIOUS_TAG"
+          CHANGELOG_CONTENT=$(git log --pretty=format:'* %s (%h)' $PREVIOUS_TAG..${{ vars.GITHUB_REF_NAME }})
+
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG_CONTENT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ vars.GITHUB_REF_NAME }}
+          name: Release ${{ vars.GITHUB_REF_NAME }}
+          body: |
+            ## Changelog
+            ${{ steps.changelog.outputs.changelog }}
+          allowUpdates: true
+
   releases-matrix:
     name: Release Go Binary
+    needs: create-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -26,49 +60,31 @@ jobs:
           - goarch: "386"
             goos: windows
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          fetch-depth: 0
+          go-version: stable
 
-      - name: Set APP_VERSION env
-        run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
-
-      - name: Generate Changelog
-        id: changelog
-        run: |
-          CURRENT_TAG=${{ vars.GITHUB_REF_NAME }}
-          echo "Current tag: $CURRENT_TAG"
-
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          echo "Previous tag/commit: $PREVIOUS_TAG"
-
-          CHANGELOG_CONTENT=$(git log --pretty=format:'* %s (%h)' $PREVIOUS_TAG..$CURRENT_TAG)
-
-          {
-            echo 'changelog<<EOF'
-            echo "$CHANGELOG_CONTENT"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ vars.GITHUB_REF_NAME }}
-          skipIfReleaseExists: true
-          body: |
-            ## Changelog
-            ${{ steps.changelog.outputs.changelog }}
-
-      - uses: wangyoucao577/go-release-action@v1
+      - name: Build and Upload Release Asset
+        uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/overlock"
           binary_name: "overlock"
-          ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ env.APP_VERSION }}"
+          ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ vars.GITHUB_REF_NAME }}"
 
-      - name: Notify Discord
-        if: success()
+  notify:
+    name: Notify Discord
+    needs: releases-matrix
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Send Discord Notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: |
