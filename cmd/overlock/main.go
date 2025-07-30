@@ -34,7 +34,7 @@ type Globals struct {
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
 	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
-	PluginPath    string      `name:"plugin-path" help:"Path to the plugin file" default:"./plugins"`
+	PluginPath    string      `name:"plugin-path" help:"Path to the plugin file" default:"${homedir}/.config/overlock/plugins"`
 }
 
 type VersionFlag string
@@ -114,6 +114,7 @@ type helpCmd struct{}
 
 func main() {
 
+	homeDir, err := os.UserHomeDir()
 	c := cli{
 		Globals: Globals{
 			Version:    VersionFlag(version.Version),
@@ -135,6 +136,7 @@ func main() {
 			}),
 			kong.Vars{
 				"version": version.Version,
+				"homedir": homeDir,
 			},
 			kong.ConfigureHelp(kong.HelpOptions{
 				Tree: true,
