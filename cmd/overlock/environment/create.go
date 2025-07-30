@@ -45,8 +45,9 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 				return err
 			}
 		} else {
-			logger.Errorf("Failed to load or parse configuration file %s: %v", configPath, err)
-			return err
+			logger.Infof("Failed to parse the configuration file at '%s'.", configPath)
+			logger.Info("For guidance on the correct structure, refer to the documentation: https://docs.overlock.network/environment/cfg-file")
+			return nil
 		}
 	}
 
