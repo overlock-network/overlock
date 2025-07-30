@@ -2,8 +2,10 @@ package environment
 
 import (
 	"context"
+	"errors"
 	"os"
 
+	"dario.cat/mergo"
 	"github.com/web-seven/overlock/pkg/environment"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -37,7 +39,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			if userProvidedConfig {
 				logger.Errorf("Configuration file not found at specified path: %s", configPath)
 				return err
@@ -49,7 +51,10 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	}
 
 	if cfg != nil {
-		c.createOptions = *cfg
+		if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
+			logger.Errorf("Failed to merge configuration: %v", err)
+			return err
+		}
 	}
 
 	return environment.
