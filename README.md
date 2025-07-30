@@ -1,6 +1,6 @@
 [![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/W7AsrUb5GC)
 <p align="center">
-  <img width="500" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
+  <img width="500" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
 </p>
 
 
@@ -30,7 +30,7 @@ To install Overlock, follow these steps:
 1. Download the latest version for your CPU architecture with the Overlock by run install script:
 
   ```bash
-  curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh
+  curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
   ```
 
 3. Move the extracted binary to a directory in your PATH (e.g., `/usr/local/bin`):

@@ -49,7 +49,7 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 
 func getDescriptionText() string {
 	bText := "Crossplane Environment CLI.\n\n"
-	bText += "For more details open https://github.com/web-seven/overlock \n\n"
+	bText += "For more details open https://github.com/overlock-network/overlock \n\n"
 	return bText
 }
 
