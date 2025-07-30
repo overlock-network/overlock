@@ -9,12 +9,12 @@ import (
 	"github.com/alecthomas/kong"
 )
 
-const PluginPath = "./plugins"
+var PluginPath = filepath.Join(os.Getenv("HOME"), ".config", "overlock", "plugins")
 
 func LoadPlugins() ([]kong.Option, error) {
 	files, err := os.ReadDir(PluginPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read plugin directory: %w", err)
+		return []kong.Option{}, nil
 	}
 
 	var options []kong.Option
