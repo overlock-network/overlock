@@ -41,11 +41,11 @@ overlock --version
 # Create a new Crossplane environment
 overlock environment create my-dev-env
 
-# Install AWS provider
-overlock provider install https://github.com/crossplane-contrib/provider-aws
+# Install GCP provider
+overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
 
 # Apply a configuration
-overlock configuration apply https://github.com/example/crossplane-config
+overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
 
 # List your environments
 overlock environment list
@@ -77,7 +77,7 @@ overlock environment delete <name>
 
 ### Provider Management
 
-Install and manage cloud providers (AWS, GCP, Azure, etc.):
+Install and manage cloud providers (GCP, AWS, Azure, etc.):
 
 ```bash
 # Install provider from repository
@@ -105,7 +105,7 @@ Manage Crossplane configurations that define infrastructure patterns:
 overlock configuration apply <url>
 
 # Apply multiple configurations
-overlock configuration apply <url1>,<url2>,<url3>
+overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31,xpkg.upbound.io/devops-toolkit/dot-sql:v3.0.31
 
 # List configurations
 overlock configuration list
@@ -117,7 +117,7 @@ overlock configuration load <name>
 overlock configuration serve <path>
 
 # Delete configuration
-overlock configuration delete <url>
+overlock configuration delete xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
 ```
 
 ### Function Management
@@ -223,23 +223,22 @@ overlock environment create crossplane-dev
 overlock registry create --local --default
 
 # Install commonly used providers
-overlock provider install https://github.com/crossplane-contrib/provider-aws
-overlock provider install https://github.com/crossplane-contrib/provider-kubernetes
+overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
+overlock provider install xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.14.0
 
 # Apply base configurations
-overlock configuration apply https://github.com/example/aws-base-config
+overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
 ```
 
-### Working with AWS Infrastructure
+### Working with GCP Infrastructure
 
 ```bash
-# Create AWS-focused environment
-overlock environment create aws-project
+# Create GCP-focused environment
+overlock environment create gcp-project
 
-# Install AWS provider and related configurations
-overlock provider install https://github.com/crossplane-contrib/provider-aws
-overlock configuration apply https://github.com/crossplane-contrib/configuration-aws-network
-overlock configuration apply https://github.com/crossplane-contrib/configuration-aws-database
+# Install GCP provider and configurations
+overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
+overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
 
 # Verify setup
 overlock provider list
@@ -302,7 +301,7 @@ overlock environment create staging
 
 **Provider not working:**
 - Ensure provider is properly installed: `overlock provider list`
-- Check provider configuration and credentials
+- Check provider configuration and credentials (e.g., GCP service account keys)
 - Verify Crossplane version compatibility
 
 ### Getting Help
@@ -321,7 +320,7 @@ overlock --debug <command>
 
 ## Community
 
-- **Discord**: [Join our Discord](https://discord.gg/amQZEMFbTe) for questions and community support
+- **Discord**: [Join our Discord](https://discord.gg/W7AsrUb5GC) for questions and community support
 - **GitHub**: [Report issues and contribute](https://github.com/overlock-network/overlock)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines
 
