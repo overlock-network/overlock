@@ -17,29 +17,49 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 - Difficult to refactor safely
 
 **Action Items:**
-- [ ] Create comprehensive unit test suite for all packages
-- [ ] Add integration tests for Kubernetes operations  
-- [ ] Implement test coverage reporting (target: >80%)
-- [ ] Add benchmark tests for performance-critical operations
-- [ ] Set up automated testing in CI pipeline
+- [ ] **Testing Framework**: Implement Go's `testing` package with `testify` for assertions
+- [ ] **Unit Tests**: Create tests for all packages with specific coverage targets:
+  - `internal/engine`: >90% (critical Helm operations)
+  - `internal/kube`: >85% (Kubernetes client operations)
+  - `pkg/environment`: >80% (environment lifecycle)
+  - `cmd/overlock/*`: >75% (CLI command validation)
+- [ ] **Integration Tests**: Define scope and mocking strategy:
+  - Mock Kubernetes API for unit tests using `client-go/fake`
+  - Real cluster tests for critical paths (environment creation/deletion)
+  - Docker-in-Docker setup for CI integration tests
+- [ ] **Flaky Test Prevention**:
+  - Deterministic test data with fixed timestamps and UUIDs
+  - Parallel test safety with isolated test namespaces
+  - Timeout handling for all network operations
+- [ ] **Test Coverage**: Implement coverage reporting with `go test -coverprofile`
+- [ ] **Benchmark Tests**: Add benchmarks for environment creation and package operations
 
 **Priority:** 🔴 Immediate
 
-### 2. Invalid Dependency - **CRITICAL**
+### 2. Dependency Management - **CRITICAL**
 **Current State:** `github.com/overlock-network/api@v0.0.0-20250506085608-290c182273ad` is invalid
 
 **Impact:** 
 - Build failures for new contributors
 - Potential production instability
+- No protection against future dependency issues
 
 **Action Items:**
-- [ ] Fix or remove invalid dependency from go.mod
-- [ ] Audit all dependencies for validity
-- [ ] Update go.mod with proper version constraints
+- [ ] **Immediate Fix**: Remove/fix invalid dependency from go.mod
+- [ ] **Automated Validation**: Add CI checks for dependency health:
+  - `go mod tidy` in GitHub Actions
+  - `go mod verify` to check module checksums  
+  - `go mod download` with error handling
+- [ ] **Dependency Monitoring**: Implement automated dependency management:
+  - Configure Dependabot or Renovate for automated PRs
+  - Add breaking change detection in PR checks
+  - Weekly nightly builds from clean environment
+- [ ] **Version Constraints**: Update go.mod with proper semantic versioning
+- [ ] **Vulnerability Scanning**: Add `govulncheck` to CI pipeline
 
 **Priority:** 🔴 Immediate
 
-### 3. Error Handling Inconsistencies - **CRITICAL**
+### 3. Error Handling Standardization - **CRITICAL**
 **Current State:** Mix of `logger.Fatal()` and proper error returns
 
 **Impact:** 
@@ -48,10 +68,21 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 - Difficult debugging
 
 **Action Items:**
-- [ ] Replace all `logger.Fatal()` calls with proper error returns
-- [ ] Standardize error handling patterns across codebase
-- [ ] Implement consistent error wrapping strategy
-- [ ] Add error constants for common error types
+- [ ] **Error Handling Guidelines**: Establish unified standards:
+  - Use `errors.Wrap()` with context for error propagation
+  - Reserve `logger.Fatal()` only for `main()` function
+  - Bubble up errors through function returns
+  - Log errors at the boundary (CLI handlers, not internal functions)
+- [ ] **Error Types**: Define custom error types for common scenarios:
+  - `InvalidConfigError` for configuration issues
+  - `KubernetesConnectionError` for cluster connectivity
+  - `PackageNotFoundError` for missing packages
+- [ ] **Linting Enforcement**: Add CI checks for error handling:
+  - `errcheck` linter to catch unhandled errors
+  - `golangci-lint` with error-related rules
+  - Custom linting rules to prevent `logger.Fatal()` outside main
+- [ ] **Error Context**: Add structured error context throughout codebase
+- [ ] **Graceful Degradation**: Define where to fail vs. continue with warnings
 
 **Priority:** 🔴 Immediate
 
@@ -68,28 +99,50 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 
 ## High Priority Issues
 
-### 5. Input Validation
-**Current State:** Minimal validation for user inputs
+### 5. Input Validation & Security
+**Current State:** Minimal validation for user inputs, unsafe plugin loading
 
 **Action Items:**
-- [ ] Add comprehensive input validation for all CLI commands
-- [ ] Validate file paths, URLs, and configuration values
-- [ ] Implement sanitization for user-provided data
-- [ ] Add validation middleware for common patterns
+- [ ] **CLI Validation**: Add comprehensive input validation:
+  - File path sanitization and existence checks
+  - URL validation with allowed schemes (https://, file://)
+  - Environment name validation (DNS-safe names)
+  - Configuration value bounds checking
+- [ ] **Security Scanning**: Implement immediate security measures:
+  - Add `gitleaks` for secret scanning in PR checks
+  - Run `gosec` security linter in CI
+  - Add SAST scanning with CodeQL or similar
+- [ ] **Plugin Security**: Move plugin validation to Phase 1:
+  - Plugin signature verification
+  - Sandboxed plugin execution
+  - Validation of plugin .so files before loading
+- [ ] **Threat Model**: Complete threat model review before Phase 2
+- [ ] **Configuration Security**: Prevent malicious config injection:
+  - Schema-based validation with strict unknown field rejection
+  - Prevent shell command injection in config values
+  - Validate file paths don't escape intended directories
 
-**Priority:** 🟠 High
+**Priority:** 🔴 Critical (moved from High)
 
-### 6. Security Enhancements
-**Current State:** No security scanning, unsafe plugin loading
+### 6. Structured Logging & Early Observability
+**Current State:** Basic logging, no tracing (moved from Phase 3)
 
 **Action Items:**
-- [ ] Implement security scanning in CI (Snyk, gosec)
-- [ ] Add plugin validation and sandboxing
-- [ ] Secure Docker client usage
-- [ ] Add vulnerability scanning for dependencies
-- [ ] Implement proper secret handling
+- [ ] **Structured Logging**: Implement early for debugging critical fixes:
+  - Add correlation IDs for request tracing
+  - Structured JSON logging format
+  - Log levels with proper severity mapping
+  - Context propagation through function calls
+- [ ] **Basic Tracing**: Add minimal tracing for debugging:
+  - Operation start/end logging
+  - Duration tracking for critical operations
+  - Error context with stack traces
+- [ ] **Debug Tooling**: Improve debugging experience during development:
+  - Enhanced debug output formatting
+  - Log filtering by component/operation
+  - Request/response logging for external calls
 
-**Priority:** 🟠 High
+**Priority:** 🟠 High (moved up from Medium)
 
 ### 7. Dependency Management
 **Current State:** 300+ dependencies, potential version conflicts
@@ -105,15 +158,26 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 
 ## Medium Priority Improvements
 
-### 8. Code Architecture Refactoring
-**Current State:** Global variables, tight coupling
+### 8. Architecture Refactoring with Acceptance Criteria
+**Current State:** Global variables, tight coupling, unclear module boundaries
 
 **Action Items:**
-- [ ] Replace global variables with dependency injection
-- [ ] Implement interfaces for better testability
-- [ ] Reduce package coupling
-- [ ] Add domain-driven design boundaries
-- [ ] Implement configuration objects instead of globals
+- [ ] **Specific Refactoring Targets** (Phase 3):
+  - Refactor `internal/engine` and `internal/namespace` to remove globals
+  - Create `Config` struct to replace `engine.Version`, `namespace.Namespace`
+  - Add interfaces for `Manager`, `Environment`, and `Registry` types
+- [ ] **Dependency Mapping**: Document current and target dependency graphs:
+  - Current: Measure import depth and circular dependencies
+  - Target: Max 4-level import depth, zero circular dependencies
+  - Create dependency visualization with `go mod graph`
+- [ ] **Interface Implementation**: Add testable interfaces:
+  - `EngineManager` interface for Helm operations
+  - `KubernetesClient` interface for cluster operations  
+  - `EnvironmentManager` interface for lifecycle operations
+- [ ] **Acceptance Criteria**:
+  - All packages compile with interfaces
+  - Unit tests can mock all external dependencies
+  - No package imports more than 4 levels deep
 
 **Priority:** 🟡 Medium
 
@@ -155,15 +219,19 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 
 ## Low Priority Enhancements
 
-### 12. Documentation Improvements
-**Action Items:**
-- [ ] Add comprehensive API documentation
-- [ ] Create developer guide
-- [ ] Add troubleshooting documentation
-- [ ] Create video tutorials
-- [ ] Add architecture decision records (ADRs)
+### 12. Documentation Improvements (Phased)
+**Phase 1-2 (Critical Documentation):**
+- [ ] Developer setup guide and test running instructions
+- [ ] Contribution guidelines with error handling standards
+- [ ] Basic troubleshooting guide for common issues
 
-**Priority:** 🟢 Low
+**Phase 4 (Complete Documentation):**
+- [ ] Comprehensive API documentation
+- [ ] Video tutorials and advanced guides  
+- [ ] Architecture decision records (ADRs)
+- [ ] User onboarding documentation
+
+**Priority:** 🔴 Critical (basic docs), 🟢 Low (advanced docs)
 
 ### 13. Performance Optimizations
 **Action Items:**
@@ -191,9 +259,9 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
 **Implementation Mode:** Semi-Automated with AI Agent Assistance  
 **Roadmap Start:** August 15, 2025
 
-### Phase 1: Foundation (Days 1-3)
+### Phase 1: Foundation (Days 1-5) - **EXTENDED**
 Focus on critical issues that affect reliability and security.
-**Timeline:** August 15-17, 2025 (3 days with AI agent assistance)
+**Timeline:** August 15-21, 2025 (5 days with AI agent assistance)
 
 ```mermaid
 gantt
@@ -201,52 +269,66 @@ gantt
     dateFormat  YYYY-MM-DD
     section Critical
     Fix Dependencies     :2025-08-15, 4h
-    Add Basic Tests      :2025-08-15, 1d
-    Fix Error Handling   :2025-08-16, 1d
-    Setup CI Pipeline    :2025-08-17, 6h
+    Plugin Security      :2025-08-15, 4h
+    Add Basic Tests      :2025-08-16, 1d
+    Fix Error Handling   :2025-08-17, 1d
+    Setup CI Pipeline    :2025-08-19, 1d
+    Code Freeze/Review   :2025-08-20, 1d
+    Developer Docs       :2025-08-21, 4h
 ```
 
-### Phase 2: Stabilization (Days 4-5)
+### Phase 2: Stabilization (Days 6-8)
 Address high-priority security and validation issues.
-**Timeline:** August 18-19, 2025 (2 days with AI agent assistance)
+**Timeline:** August 22-24, 2025 (3 days with AI agent assistance)
 
 ```mermaid
 gantt
     title Phase 2 - Stabilization (AI Agent-Assisted)
     dateFormat  YYYY-MM-DD
     section High Priority
-    Input Validation     :2025-08-18, 1d
-    Security Scanning    :2025-08-18, 4h
-    Dependency Audit     :2025-08-19, 4h
+    Input Validation     :2025-08-22, 1d
+    Security Scanning    :2025-08-22, 4h
+    Structured Logging   :2025-08-23, 1d
+    Dependency Audit     :2025-08-24, 4h
 ```
 
-### Phase 3: Enhancement (Days 6-10)
+### Phase 3: Enhancement (Days 9-13)
 Medium-priority architectural improvements and features.
-**Timeline:** August 20-24, 2025 (5 days with AI agent assistance)
+**Timeline:** August 25-29, 2025 (5 days with AI agent assistance)
 
-### Phase 4: Polish (Days 11-14)
+### Phase 4: Polish (Days 14-17)
 Low-priority user experience and documentation enhancements.
-**Timeline:** August 25-28, 2025 (4 days with AI agent assistance)
+**Timeline:** September 1-4, 2025 (4 days with AI agent assistance)
 
 ## Success Metrics
 
-### Code Quality Metrics
-- [ ] Test coverage: >80%
-- [ ] Linting score: 100% (no warnings)
-- [ ] Security scan: 0 high/critical vulnerabilities
-- [ ] Dependency health: All dependencies up-to-date
+### Code Quality Metrics (with baselines)
 
-### Performance Metrics
-- [ ] Environment creation time: <60 seconds
-- [ ] Memory usage: <500MB baseline
-- [ ] Binary size: <50MB
-- [ ] Startup time: <2 seconds
+| Metric | Current Value | Target | Measurement Method |
+|--------|---------------|--------|--------------------|
+| Test coverage | 0% | >80% | `go test -coverprofile` |
+| Linting score | Unknown | 100% (no warnings) | `golangci-lint run` |
+| Security scan | Unknown | 0 high/critical vulnerabilities | `gosec`, `govulncheck` |
+| Dependency health | 1 invalid dep | All dependencies up-to-date | `go mod verify`, Dependabot |
+| Package coupling | Unknown | Max 4-level import depth | `go mod graph` analysis |
+
+### Performance Metrics (with baselines)
+
+| Metric | Current Value | Target | Measurement Method |
+|--------|---------------|--------|--------------------|
+| Environment creation time | Unknown | <60 seconds | Benchmark tests |
+| Memory usage | Unknown | <500MB baseline | `go test -bench -memprofile` |
+| Binary size | Unknown | <50MB | `ls -lh overlock` |
+| Startup time | Unknown | <2 seconds | `time overlock --help` |
 
 ### Development Experience Metrics
-- [ ] Build time: <30 seconds
-- [ ] Test execution time: <5 minutes
-- [ ] Documentation completeness: >90%
-- [ ] Contributor onboarding time: <30 minutes
+
+| Metric | Current Value | Target | Measurement Method |
+|--------|---------------|--------|--------------------|
+| Build time | Unknown | <30 seconds | CI build logs |
+| Test execution time | N/A (no tests) | <5 minutes | CI test logs |
+| Documentation completeness | ~40% | >90% | Manual audit |
+| Contributor onboarding time | Unknown | <30 minutes | New contributor feedback |
 
 ## Risk Assessment
 
@@ -271,12 +353,15 @@ Low-priority user experience and documentation enhancements.
 - **Automated Tools**: Dependabot, security scanners, linting tools
 
 ### Timeline Estimate (AI Agent-Assisted Implementation)
-- **Phase 1 (Critical)**: 3 days
-- **Phase 2 (High Priority)**: 2 days  
+- **Phase 1 (Critical)**: 5 days (extended for proper foundation)
+- **Phase 2 (High Priority)**: 3 days  
 - **Phase 3 (Medium Priority)**: 5 days
 - **Phase 4 (Low Priority)**: 4 days
 
-**Total Estimated Timeline**: 14 days for complete implementation (August 15-28, 2025)
+**Total Estimated Timeline**: 17 days for complete implementation (August 15 - September 4, 2025)
+
+### Baseline Measurement Phase
+**Pre-Implementation (August 15)**: Measure all current values for metrics table above
 
 ### AI Agent-Assisted Development Benefits
 - **Speed Multiplier**: ~8x faster than traditional development
