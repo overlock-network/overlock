@@ -1,117 +1,330 @@
 [![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/W7AsrUb5GC)
+
 <p align="center">
   <img width="500" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
 </p>
 
+# Overlock
 
-Overlock is a lightweight CLI tool designed to simplify the management of Crossplane resources and environments. It supports KinD, K3s, and K3d clusters, making it ideal for local development and testing of Crossplane configurations, providers and functions.
+Overlock is a CLI tool that simplifies Crossplane development and testing. It handles the complexity of setting up Crossplane environments, making it easy for developers to build, test, and deploy infrastructure-as-code solutions.
 
-## Features
+## Key Features
 
-- **Easily manage Crossplane environments**: Create and manage Crossplane environments for local development or testing purposes.
-- **Supports multiple cluster types**: Works with KinD, K3s, and K3d, allowing you to choose the cluster type best suited for your development and testing needs.
-- **Local and remote package registries**: Manage both local and remote Crossplane registries to handle configurations, providers and functions.
-- **Load and apply Crossplane configurations**: Seamlessly load Crossplane configuration packages from local `.xpkg` files or apply them directly from remote URLs.
-- **Provider management**: Easily load and apply Crossplane Providers from `.xpkg` files, supporting rapid local development.
-- **Function management**: Easily load and apply Crossplane Functions from `.xpkg` files.
-- **Simplified interface**: Overlock automates Crossplane installation, ensuring the setup process is hassle-free and quick.
+- **Quick Environment Setup**: Create fully configured Crossplane environments with a single command
+- **Multi-Engine Support**: Works with KinD, K3s, and K3d Kubernetes distributions
+- **Package Management**: Install and manage Crossplane configurations, providers, and functions
+- **Development Workflow**: Live-reload support for local package development
+- **Registry Integration**: Support for both local and remote package registries
 
 ## Installation
 
-To install Overlock, follow these steps:
-
 ### Prerequisites
 
-- Docker installed and running.
-- KinD, k3d or k3s installed.
+- Docker (required for creating Kubernetes clusters)
+- One of: KinD, K3s, or K3d (choose based on your preference)
 
-### Install via pre-compiled binary
+### Install Overlock
 
-1. Download the latest version for your CPU architecture with the Overlock by run install script:
+```bash
+curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+sudo mv overlock /usr/local/bin/
+```
 
-  ```bash
-  curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
-  ```
+Verify installation:
+```bash
+overlock --version
+```
 
-3. Move the extracted binary to a directory in your PATH (e.g., `/usr/local/bin`):
+## Quick Start
 
-   ```bash
-   sudo mv overlock /usr/local/bin/
-   ```
+```bash
+# Create a new Crossplane environment
+overlock environment create my-dev-env
 
-4. Verify the installation:
+# Install AWS provider
+overlock provider install https://github.com/crossplane-contrib/provider-aws
 
-   ```bash
-   overlock --version
-   ```
+# Apply a configuration
+overlock configuration apply https://github.com/example/crossplane-config
 
-## Usage
+# List your environments
+overlock environment list
+```
 
-Overlock simplifies Crossplane setup and management across different cluster types. Use the following commands to work with your environment:
+## Command Reference
 
-- Create or delete a Crossplane environment:
+### Environment Management
 
-  ```bash
-  overlock environment create|delete <environment-name>
-  ```
+Create and manage Crossplane-enabled Kubernetes environments:
 
-- Create or delete a local Crossplane package registry:
+```bash
+# Create new environment
+overlock environment create <name>
 
-  ```bash
-  overlock registry create|delete --local [--default]
-  ```
+# List all environments  
+overlock environment list
 
-- Create or delete a remote private Crossplane registry:
+# Start/stop environments
+overlock environment start <name>
+overlock environment stop <name>
 
-  ```bash
-  overlock registry create|delete [--default] --registry-server=<httpsurl> --username=<string> --password=<string> --email=<string>
-  ```
+# Upgrade environment to latest Crossplane
+overlock environment upgrade <name>
 
-- Load a Crossplane configuration from a local `.xpkg` file:
+# Delete environment
+overlock environment delete <name>
+```
 
-  ```bash
-  overlock configuration load <file.xpkg>
-  ```
+### Provider Management
 
-- Apply a Crossplane configuration from a remote URL:
+Install and manage cloud providers (AWS, GCP, Azure, etc.):
 
-  ```bash
-  overlock configuration apply <url>
-  ```
+```bash
+# Install provider from repository
+overlock provider install <provider-url>
 
-- Serve a Crossplane configuration from local sources:
+# List installed providers
+overlock provider list
 
-  ```bash
-  overlock configuration serve <configuration_package_path>
-  ```
+# Load provider from local file
+overlock provider load <name>
 
-- Load and apply a Crossplane provider from an `.xpkg` file:
+# Serve provider for development (with live reload)
+overlock provider serve <path> <main-path>
 
-  ```bash
-  overlock provider load --apply --path=<file.xpkg> provider-name:version
-  ```
+# Remove provider
+overlock provider delete <provider-url>
+```
 
-- Load and apply a Crossplane function from an `.xpkg` file:
+### Configuration Management
 
-  ```bash
-  overlock function load --apply --path=<file.xpkg> function-name:version
-  ```
+Manage Crossplane configurations that define infrastructure patterns:
 
-Overlock will automatically set up Crossplane on the specified cluster type (KinD, K3s, or K3d) based on your configuration.
+```bash
+# Apply configuration from URL
+overlock configuration apply <url>
 
-## Contributing
+# Apply multiple configurations
+overlock configuration apply <url1>,<url2>,<url3>
 
-We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) for more details on how to get involved.
+# List configurations
+overlock configuration list
+
+# Load from local file
+overlock configuration load <name>
+
+# Serve for development (with live reload)
+overlock configuration serve <path>
+
+# Delete configuration
+overlock configuration delete <url>
+```
+
+### Function Management
+
+Manage Crossplane functions for custom composition logic:
+
+```bash
+# Apply function from URL
+overlock function apply <url>
+
+# Apply multiple functions
+overlock function apply <url1>,<url2>
+
+# List functions
+overlock function list
+
+# Load from local file
+overlock function load <name>
+
+# Serve for development (with live reload)
+overlock function serve <path>
+
+# Delete function
+overlock function delete <url>
+```
+
+### Registry Management
+
+Configure package registries for storing and distributing Crossplane packages:
+
+```bash
+# Create local registry
+overlock registry create --local --default
+
+# Create remote registry connection
+overlock registry create --registry-server=<url> \
+                        --username=<user> \
+                        --password=<pass> \
+                        --email=<email>
+
+# List registries
+overlock registry list
+
+# Delete registry
+overlock registry delete
+```
+
+### Resource Management
+
+Create and manage custom resources:
+
+```bash
+# Create custom resource definition
+overlock resource create <type>
+
+# List custom resources
+overlock resource list
+
+# Apply resources from file
+overlock resource apply <file.yaml>
+```
+
+## Configuration
+
+### Global Options
+
+```bash
+overlock [global-options] <command>
+
+Global Options:
+  -D, --debug                    Enable debug mode
+  -n, --namespace=STRING         Namespace for cluster resources  
+  -r, --engine-release=STRING    Crossplane Helm release name
+  -v, --engine-version=STRING    Crossplane version (default: 1.19.0)
+      --plugin-path=STRING       Path to plugin directory
+```
+
+### Environment Variables
+
+- `OVERLOCK_ENGINE_NAMESPACE`: Default namespace for resources
+- `OVERLOCK_ENGINE_RELEASE`: Default Helm release name  
+- `OVERLOCK_ENGINE_VERSION`: Default Crossplane version
+
+### Command Aliases
+
+All commands support short aliases:
+- `environment` → `env`
+- `configuration` → `cfg`
+- `provider` → `prv`
+- `function` → `fnc`
+- `registry` → `reg`
+- `resource` → `res`
+
+## Usage Examples
+
+### Basic Development Setup
+
+```bash
+# Create development environment
+overlock environment create crossplane-dev
+
+# Set up local registry
+overlock registry create --local --default
+
+# Install commonly used providers
+overlock provider install https://github.com/crossplane-contrib/provider-aws
+overlock provider install https://github.com/crossplane-contrib/provider-kubernetes
+
+# Apply base configurations
+overlock configuration apply https://github.com/example/aws-base-config
+```
+
+### Working with AWS Infrastructure
+
+```bash
+# Create AWS-focused environment
+overlock environment create aws-project
+
+# Install AWS provider and related configurations
+overlock provider install https://github.com/crossplane-contrib/provider-aws
+overlock configuration apply https://github.com/crossplane-contrib/configuration-aws-network
+overlock configuration apply https://github.com/crossplane-contrib/configuration-aws-database
+
+# Verify setup
+overlock provider list
+overlock configuration list
+
+# Apply your infrastructure definitions
+overlock resource apply ./infrastructure.yaml
+```
+
+### Local Package Development
+
+```bash
+# Create development environment
+overlock environment create package-dev
+
+# Start live development servers (run in separate terminals)
+overlock configuration serve ./my-config-package &
+overlock provider serve ./my-provider ./cmd/provider &
+overlock function serve ./my-function &
+
+# Test your packages
+overlock resource apply ./test-resources.yaml
+
+# Packages automatically reload when you modify code
+```
+
+### Multi-Environment Workflow
+
+```bash
+# Development environment
+overlock environment create dev
+overlock environment start dev
+# ... do development work ...
+overlock environment stop dev
+
+# Testing environment  
+overlock environment create test
+overlock environment start test
+# ... run tests ...
+overlock environment stop test
+
+# Staging environment
+overlock environment create staging
+# ... deploy to staging ...
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Environment creation fails:**
+- Ensure Docker is running
+- Check that your chosen Kubernetes engine (KinD/K3s/K3d) is installed
+- Verify you have sufficient system resources
+
+**Package installation fails:**
+- Check internet connectivity for remote packages
+- Verify package URLs are correct and accessible
+- Use `--debug` flag for detailed error information
+
+**Provider not working:**
+- Ensure provider is properly installed: `overlock provider list`
+- Check provider configuration and credentials
+- Verify Crossplane version compatibility
+
+### Getting Help
+
+```bash
+# General help
+overlock --help
+
+# Command-specific help
+overlock environment --help
+overlock configuration --help
+
+# Enable debug output
+overlock --debug <command>
+```
 
 ## Community
 
-This project is written in Golang but many of the community contributions so far have been through blogging, speaking engagements, helping to test and drive the backlog of Overlock. If you'd like to help in any way then that would be more than welcome whatever your level of experience.
-
-### Chat
-
-[Join Discord here](https://discord.gg/amQZEMFbTe)
+- **Discord**: [Join our Discord](https://discord.gg/amQZEMFbTe) for questions and community support
+- **GitHub**: [Report issues and contribute](https://github.com/overlock-network/overlock)
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
+This project is licensed under the MIT License. See [LICENSE](LICENSE) file for details.
