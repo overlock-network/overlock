@@ -872,8 +872,8 @@ github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnh
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/ory/dockertest v3.3.5+incompatible h1:iLLK6SQwIhcbrG783Dghaaa3WPzGc+4Emza6EbVUUGA=
 github.com/ory/dockertest v3.3.5+incompatible/go.mod h1:1vX4m9wsvi00u5bseYwXaSnhNrne+V0E6LAcBILJdPs=
-github.com/overlock-network/api v0.0.0-20250506085608-290c182273ad h1:VEyrb/FYDf3HSKlQO8+a+cYD1GwORcCPs6SaU7mT8kw=
-github.com/overlock-network/api v0.0.0-20250506085608-290c182273ad/go.mod h1:ECaIWQVekL7FLBStZSNdKzCFrhESmh9XjO1k/CdzoTA=
+github.com/overlock-network/api v0.0.30 h1:1PAvLZqgcNBx6xMTWqrKZkQP1qXFd2eJDmordBAhl8w=
+github.com/overlock-network/api v0.0.30/go.mod h1:osCtaa40po9JA2szn6tBtfIB6Vy+gIe2oXvPqpYznfM=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
