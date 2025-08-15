@@ -54,11 +54,21 @@ func getDescriptionText() string {
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
-	config, _ := ctrl.GetConfig()
+	config, err := ctrl.GetConfig()
+	if err != nil {
+		// Config is optional - may not be available in some contexts
+		config = nil
+	}
 	if config != nil {
 		ctx.Bind(config)
-		dynamicClient, _ := dynamic.NewForConfig(config)
-		kubeClient, _ := kube.Client(config)
+		dynamicClient, err := dynamic.NewForConfig(config)
+		if err != nil {
+			return fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+		kubeClient, err := kube.Client(config)
+		if err != nil {
+			return fmt.Errorf("failed to create kube client: %w", err)
+		}
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
 	}
@@ -89,7 +99,10 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		engine.Version = c.Globals.EngineVersion
 	}
 
-	logger, _ := cfg.Build()
+	logger, err := cfg.Build()
+	if err != nil {
+		return fmt.Errorf("failed to build logger: %w", err)
+	}
 	ctrl.SetLogger(logr.Logger{})
 	ctx.Bind(logger.Sugar())
 	return nil

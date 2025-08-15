@@ -1,4 +1,4 @@
-name: Dependency Health
+name: Basic Health Checks
 
 on:
   pull_request:
@@ -30,3 +30,4 @@ jobs:
 
       - name: Verify dependencies
         run: go mod verify
+

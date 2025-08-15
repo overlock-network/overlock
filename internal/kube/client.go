@@ -23,6 +23,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -53,7 +54,7 @@ func Context(ctx context.Context, context string) (*dynamic.DynamicClient, error
 
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, overlockerrors.NewKubernetesConnectionErrorWithCause(context, "", "failed to create dynamic client", err)
 	}
 
 	return dynamicClient, nil
@@ -63,7 +64,7 @@ func ConfigContext(ctx context.Context, config *rest.Config) (*dynamic.DynamicCl
 
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, overlockerrors.NewKubernetesConnectionErrorWithCause("", config.Host, "failed to create dynamic client", err)
 	}
 
 	return dynamicClient, nil
@@ -72,7 +73,7 @@ func ConfigContext(ctx context.Context, config *rest.Config) (*dynamic.DynamicCl
 func Config(context string) (*rest.Config, error) {
 	config, err := ctrl.GetConfigWithContext(context)
 	if err != nil {
-		return nil, err
+		return nil, overlockerrors.NewKubernetesConnectionErrorWithCause(context, "", "failed to get kubernetes config with context", err)
 	}
 	return config, nil
 }
@@ -80,7 +81,7 @@ func Config(context string) (*rest.Config, error) {
 func Client(config *rest.Config) (*kubernetes.Clientset, error) {
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, overlockerrors.NewKubernetesConnectionErrorWithCause("", config.Host, "failed to create kubernetes client", err)
 	}
 	return client, nil
 }

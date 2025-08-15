@@ -33,7 +33,7 @@ func sendPostRequest(url string, payload map[string]string) {
 		log.Printf("[ERROR] POST request failed: %v", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	log.Printf("[INFO] POST request sent to %s - status: %s", url, resp.Status)
 }

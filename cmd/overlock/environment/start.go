@@ -3,8 +3,9 @@ package environment
 import (
 	"context"
 
-	"github.com/web-seven/overlock/pkg/environment"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/pkg/environment"
 )
 
 type startCmd struct {

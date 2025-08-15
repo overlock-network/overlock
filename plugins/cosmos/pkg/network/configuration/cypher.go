@@ -12,7 +12,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/zalando/go-keyring"
+	keyring "github.com/zalando/go-keyring"
 	"go.uber.org/zap"
 )
 

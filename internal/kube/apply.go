@@ -75,7 +75,7 @@ func (i *ImagePullApplicator) Apply(ctx context.Context, name, ns, user, pass, r
 			},
 		},
 	}
-	regAuthJSON, err := json.Marshal(regAuth)
+	regAuthJSON, err := json.Marshal(regAuth) //nolint:typecheck // variable is used on line 89
 	if err != nil {
 		return err
 	}

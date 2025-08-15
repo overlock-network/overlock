@@ -22,8 +22,12 @@ func createRegistry(engine string, ctx context.Context, logger *zap.SugaredLogge
 	}
 	envName := env.Metadata.Name
 
-	tableData := pterm.TableData{{"NAME", "TYPE"}}
-	tableData = environment.ListEnvironments(logger, tableData)
+	tableData := pterm.TableData{[]string{"NAME", "TYPE"}}
+	tableData, err = environment.ListEnvironments(logger, tableData)
+	if err != nil {
+		logger.Errorf("Failed to list environments: %v", err)
+		return
+	}
 
 	envExists := false
 	re := regexp.MustCompile(`-(\w+)`)

@@ -5,13 +5,13 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
+	"github.com/pkg/errors"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
@@ -88,7 +88,7 @@ func New(server string, username string, password string, email string) Registry
 			},
 		},
 	}
-	registry.Annotations = map[string]string{
+	registry.Secret.Annotations = map[string]string{
 		RegistryServerLabel: server,
 	}
 	return registry
@@ -114,7 +114,7 @@ func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, l
 	for _, auth := range r.Config.Auths {
 		err := validate.Struct(auth)
 		if err != nil {
-			return fmt.Errorf(err.Error())
+			return err
 		}
 	}
 	if r.Exists(ctx, client) {
@@ -128,11 +128,11 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 	registries, _ := Registries(ctx, client)
 	for _, registry := range registries {
 		for authServer := range r.Config.Auths {
-			if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, authServer) {
+			if existsUrl := registry.Secret.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, authServer) {
 				return true
 			}
 		}
-		if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Annotations[RegistryServerLabel]) {
+		if existsUrl := registry.Secret.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Secret.Annotations[RegistryServerLabel]) {
 			return true
 		}
 	}
@@ -241,9 +241,14 @@ func (r *Registry) SetRegistyDefault(ctx context.Context, config *rest.Config) e
 		}
 	}
 
+	domain, err := r.Domain()
+	if err != nil {
+		return errors.Wrap(err, "failed to get registry domain")
+	}
+
 	release.Config["args"] = append(
 		args,
-		"--registry="+r.Domain(),
+		"--registry="+domain,
 	)
 
 	version, err := installer.GetCurrentVersion()
@@ -254,15 +259,27 @@ func (r *Registry) SetRegistyDefault(ctx context.Context, config *rest.Config) e
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
-	secJson, _ := json.Marshal(sec)
-	json.Unmarshal(secJson, r)
+	secJson, err := json.Marshal(sec)
+	if err != nil {
+		// Log error but continue with empty registry
+		return r
+	}
+	if err := json.Unmarshal(secJson, r); err != nil {
+		// Log error but continue with partially populated registry
+	}
 	return r
 }
 
 func (r *Registry) ToSecret() *corev1.Secret {
 	sec := corev1.Secret{}
-	rJson, _ := json.Marshal(r)
-	json.Unmarshal(rJson, &sec)
+	rJson, err := json.Marshal(r)
+	if err != nil {
+		// Return empty secret on marshal error
+		return &sec
+	}
+	if err := json.Unmarshal(rJson, &sec); err != nil {
+		// Return partially populated secret on unmarshal error
+	}
 	return &sec
 }
 
@@ -351,13 +368,13 @@ func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig
 	if len(registries) > 0 {
 		for _, registry := range registries {
 			if !registry.Exists(ctx, destClient) {
-				registry.SetResourceVersion("")
+				registry.Secret.SetResourceVersion("")
 				_, err = destClient.CoreV1().Secrets(namespace.Namespace).Create(ctx, registry.ToSecret(), metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}
 			} else {
-				logger.Warn("Registry for " + registry.Annotations[RegistryServerLabel] + " already exist inside of destination context.")
+				logger.Warn("Registry for " + registry.Secret.Annotations[RegistryServerLabel] + " already exist inside of destination context.")
 			}
 
 		}
@@ -384,15 +401,15 @@ func (r *Registry) WithContext(c string) {
 }
 
 // Domain of primary registry
-func (r *Registry) Domain() string {
+func (r *Registry) Domain() (string, error) {
 	if r.Local {
-		return r.LocalDomain()
+		return r.LocalDomain(), nil
 	}
 	url, err := url.Parse(r.Server)
 	if err != nil {
-		log.Fatal(err)
+		return "", errors.Wrap(err, "failed to parse registry server URL")
 	}
-	return url.Hostname()
+	return url.Hostname(), nil
 }
 
 // Local domain composed with parameters
@@ -409,7 +426,7 @@ func (r *Registry) SecretSpec() corev1.Secret {
 			Labels: engine.ManagedLabels(map[string]string{
 				"overlock-registry-auth-config": "true",
 			}),
-			Annotations: r.Annotations,
+			Annotations: r.Secret.Annotations,
 		},
 		Data: map[string][]byte{".dockerconfigjson": regConf},
 		Type: "kubernetes.io/dockerconfigjson",

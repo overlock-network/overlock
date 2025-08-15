@@ -19,7 +19,7 @@ func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *
 	}
 
 	tableRegs := pterm.TableData{
-		{"NAME", "SERVER", "DATE"},
+		[]string{"NAME", "SERVER", "DATE"},
 	}
 
 	for _, reg := range registries {

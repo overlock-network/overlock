@@ -25,14 +25,20 @@ func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, 
 		params = release.Config
 	}
 
-	provider := params["provider"].(map[string]any)
+	provider, ok := params["provider"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("invalid provider configuration in params")
+	}
 	packages, ok := provider["packages"].([]any)
 	if !ok {
 		return fmt.Errorf("error extracting packages")
 	}
 	var newpackages []string
 	for _, p := range packages {
-		pstr := p.(string)
+		pstr, ok := p.(string)
+		if !ok {
+			continue // Skip non-string entries
+		}
 		if !strings.Contains(pstr, url) {
 			newpackages = append(newpackages, pstr)
 		}

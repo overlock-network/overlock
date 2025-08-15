@@ -57,7 +57,7 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 	}
 	if p.Upgrade {
 		logger.Debug("Upgrading provider")
-		p.Name, err = p.UpgradeVersion(ctx, dc, p.Name, pkgs)
+		p.Name, err = p.Package.UpgradeVersion(ctx, dc, p.Name, pkgs)
 		if err != nil {
 			return err
 		}

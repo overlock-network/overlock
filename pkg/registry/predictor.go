@@ -19,7 +19,7 @@ func registries(ctx context.Context, client *kubernetes.Clientset) complete.Pred
 			return regs
 		}
 		for _, reg := range registries {
-			regs = append(regs, reg.GetName())
+			regs = append(regs, reg.Secret.GetName())
 		}
 		return regs
 	}

@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
 
@@ -27,11 +29,15 @@ func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLo
 			"packages": []string{provider},
 		}
 	} else {
-		configs := release.Config["provider"].(map[string]interface{})
-		configs["packages"] = append(
-			configs["packages"].([]interface{}),
-			provider,
-		)
+		configs, ok := release.Config["provider"].(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("invalid provider configuration")
+		}
+		packages, ok := configs["packages"].([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid packages configuration")
+		}
+		configs["packages"] = append(packages, provider)
 		release.Config["provider"] = configs
 	}
 

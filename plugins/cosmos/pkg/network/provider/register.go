@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -9,25 +10,28 @@ import (
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/client"
 )
 
-func Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend string, msg crossplanev1beta1.MsgCreateProvider) {
+func Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend string, msg crossplanev1beta1.MsgCreateProvider) error {
 
-	clientCtx := client.BuildClientContext(importKeyName, rpcURI, chainId, keyringBackend)
-
-	err := client.ImportKey(clientCtx, importKeyName, importKeyPath)
+	clientCtx, err := client.BuildClientContext(importKeyName, rpcURI, chainId, keyringBackend)
 	if err != nil {
-		log.Fatalf("Failed to import key: %v", err)
+		return fmt.Errorf("failed to build client context: %w", err)
+	}
+
+	err = client.ImportKey(clientCtx, importKeyName, importKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to import key: %w", err)
 	} else {
 		log.Printf("Key %s imported successfully", importKeyName)
 	}
 
 	info, err := clientCtx.Keyring.Key(importKeyName)
 	if err != nil {
-		log.Fatalf("Failed to get key: %v", err)
+		return fmt.Errorf("failed to get key: %w", err)
 	}
 
 	address, err := info.GetAddress()
 	if err != nil {
-		log.Fatalf("Failed to get address: %v", err)
+		return fmt.Errorf("failed to get address: %w", err)
 	}
 
 	currentTime := time.Now()
@@ -37,6 +41,7 @@ func Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend stri
 
 	err = client.SendTxMessage(clientCtx, importKeyName, sdkMsg, chainId)
 	if err != nil {
-		log.Fatalf("Failed to send tx: %v", err)
+		return fmt.Errorf("failed to send tx: %w", err)
 	}
+	return nil
 }

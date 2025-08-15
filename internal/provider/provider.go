@@ -80,7 +80,7 @@ func (p *Provider) UpgradeProvider(ctx context.Context, config *rest.Config, dc 
 		pkgs = append(pkgs, pkg)
 	}
 	var err error
-	p.Name, err = p.UpgradeVersion(ctx, dc, p.Name, pkgs)
+	p.Name, err = p.Package.UpgradeVersion(ctx, dc, p.Name, pkgs)
 	if err != nil {
 		return err
 	}

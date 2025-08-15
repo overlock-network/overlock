@@ -5,21 +5,22 @@ import (
 	"io"
 	"os"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func transformToUnstructured(filename string, logger *zap.SugaredLogger) ([]unstructured.Unstructured, error) {
 	file, err := readFromFile(filename)
 	if err != nil {
-		logger.Fatal(err)
+		return nil, errors.Wrap(err, "failed to read file")
 	}
 
 	yamlBytes, err := splitYAML(file)
 	if err != nil {
-		logger.Fatal(err)
+		return nil, errors.Wrap(err, "failed to split YAML")
 	}
 
 	var unstructuredResources []unstructured.Unstructured

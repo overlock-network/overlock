@@ -77,12 +77,12 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 	versionGroups := xr.getFormGroupsByProps(versionSchema, "")
 	formGroups = append(formGroups, versionGroups...)
 
-	xr.SetGroupVersionKind(schema.GroupVersionKind{
+	xr.Unstructured.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   xrd.Spec.Group,
 		Version: selectedVersion.Name,
 	})
 
-	xr.SetKind(xrd.Spec.Names.Kind)
+	xr.Unstructured.SetKind(xrd.Spec.Names.Kind)
 	xr.Resource = xrd.Spec.Names.Plural
 
 	formGroups = append(formGroups,
@@ -102,8 +102,8 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	formGroups := []*huh.Group{}
 	formFields := []huh.Field{}
 
-	if xr.Object == nil {
-		xr.Object = make(map[string]interface{})
+	if xr.Unstructured.Object == nil {
+		xr.Unstructured.Object = make(map[string]interface{})
 	}
 	for propertyName, property := range schema.Properties {
 
@@ -115,7 +115,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 
 		if (property.Type == "object" || property.Type == "array") && (!isStringInArray(metadataFields, propertyName) || len(property.Properties) > 0) {
 			schemaXr := XResource{}
-			(xr.Object)[propertyName] = &schemaXr.Object
+			(xr.Unstructured.Object)[propertyName] = &schemaXr.Unstructured.Object
 
 			if property.Type == "array" {
 				if property.Items.Schema.Type == "string" {
@@ -152,23 +152,23 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 								return nil
 							}),
 					)
-					(xr.Object)[propertyName] = &propertyValue
+					(xr.Unstructured.Object)[propertyName] = &propertyValue
 				} else if property.Items.Schema.Type == "object" {
 					propertyGroups := schemaXr.getFormGroupsByProps(property.Items.Schema, breadCrumbs)
 					formGroups = append(formGroups, propertyGroups...)
-					(xr.Object)[propertyName] = &[]map[string]interface{}{schemaXr.Object}
+					(xr.Unstructured.Object)[propertyName] = &[]map[string]interface{}{schemaXr.Unstructured.Object}
 
 				}
 
 			} else {
 				propertyGroups := schemaXr.getFormGroupsByProps(&property, breadCrumbs)
 				formGroups = append(formGroups, propertyGroups...)
-				(xr.Object)[propertyName] = &schemaXr.Object
+				(xr.Unstructured.Object)[propertyName] = &schemaXr.Unstructured.Object
 			}
 
 		} else if property.Type == "string" && !isStringInArray(apiFields, propertyName) {
 			propertyValue := ""
-			(xr.Object)[propertyName] = &propertyValue
+			(xr.Unstructured.Object)[propertyName] = &propertyValue
 
 			if len(property.Enum) > 0 {
 				if property.Default != nil {
@@ -200,7 +200,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 
 		} else if property.Type == "number" && !isStringInArray(apiFields, propertyName) {
 			propertyValue := json.Number("")
-			(xr.Object)[propertyName] = &propertyValue
+			(xr.Unstructured.Object)[propertyName] = &propertyValue
 			formFields = append(formFields, huh.NewInput().
 				Validate(func(s string) error {
 
@@ -220,7 +220,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 			)
 		} else if property.Type == "boolean" && !isStringInArray(apiFields, propertyName) {
 			propertyValue := false
-			(xr.Object)[propertyName] = &propertyValue
+			(xr.Unstructured.Object)[propertyName] = &propertyValue
 			formFields = append(formFields, huh.NewConfirm().
 				Title(description).
 				Value(&propertyValue),
@@ -234,7 +234,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 					"update-date":                  time.Now().String(),
 				},
 			}
-			(xr.Object)[propertyName] = &propertyValue
+			(xr.Unstructured.Object)[propertyName] = &propertyValue
 
 			formFields = append(formFields, huh.NewInput().
 				Validate(func(s string) error {

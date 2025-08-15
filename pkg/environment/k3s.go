@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -25,7 +26,9 @@ func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, e
 
 	// Set the KUBECONFIG environment variable for the k3s process only
 	if os.Getenv("KUBECONFIG") == "" {
-		os.Setenv("KUBECONFIG", "/etc/rancher/k3s/k3s.yaml")
+		if err := os.Setenv("KUBECONFIG", "/etc/rancher/k3s/k3s.yaml"); err != nil {
+			return "", fmt.Errorf("failed to set KUBECONFIG: %w", err)
+		}
 	}
 
 	err := cmd.Start()

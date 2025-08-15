@@ -23,8 +23,16 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 		labels := resource.GetLabels()
 		tbl.AddRow(resource.GetName(), resource.GetAPIVersion(), resource.GetKind(), labels["creation-date"], labels["update-date"])
 
-		jsonFormat, _ := resource.MarshalJSON()
-		yamlFormat, _ := yaml.JSONToYAML(jsonFormat)
+		jsonFormat, err := resource.MarshalJSON()
+		if err != nil {
+			logger.Errorf("Failed to marshal resource to JSON: %v", err)
+			continue
+		}
+		yamlFormat, err := yaml.JSONToYAML(jsonFormat)
+		if err != nil {
+			logger.Errorf("Failed to convert JSON to YAML: %v", err)
+			continue
+		}
 		logger.Infof("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
 		logger.Infof("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
 	}

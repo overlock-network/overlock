@@ -18,6 +18,7 @@ import (
 	"github.com/web-seven/overlock/internal/namespace"
 	"github.com/web-seven/overlock/internal/policy"
 	"github.com/web-seven/overlock/internal/resources"
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"github.com/web-seven/overlock/pkg/registry"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -91,8 +92,7 @@ func (e *Environment) Upgrade(ctx context.Context, logger *zap.SugaredLogger) er
 	if e.context == "" {
 		e.context = e.GetContextName()
 		if e.context == "" {
-			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
-			return nil
+			return fmt.Errorf("kubernetes engine '%s' not supported", e.engine)
 		}
 	}
 
@@ -138,8 +138,7 @@ func (e *Environment) Delete(f bool, logger *zap.SugaredLogger) error {
 	case "k3d":
 		err = e.DeleteK3dEnvironment(logger)
 	default:
-		logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
-		return nil
+		return fmt.Errorf("kubernetes engine '%s' not supported", e.engine)
 	}
 	if err != nil {
 		return err
@@ -377,7 +376,7 @@ func SwitchContext(name string) (err error) {
 }
 
 // List Environments in available contexts
-func ListEnvironments(logger *zap.SugaredLogger, tableData pterm.TableData) pterm.TableData {
+func ListEnvironments(logger *zap.SugaredLogger, tableData pterm.TableData) (pterm.TableData, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
@@ -387,12 +386,12 @@ func ListEnvironments(logger *zap.SugaredLogger, tableData pterm.TableData) pter
 	for name := range configFile.Contexts {
 		configClient, err := config.GetConfigWithContext(name)
 		if err != nil {
-			logger.Fatal(err)
+			return nil, overlockerrors.NewKubernetesConnectionErrorWithCause(name, "", "failed to get config with context", err)
 		}
 		if engine.IsHelmReleaseFound(configClient) {
 			types := regexp.MustCompile(`(\w+)`).FindStringSubmatch(name)
 			tableData = append(tableData, []string{name, strings.ToUpper(types[0])})
 		}
 	}
-	return tableData
+	return tableData, nil
 }

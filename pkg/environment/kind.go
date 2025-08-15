@@ -2,11 +2,14 @@ package environment
 
 import (
 	"bufio"
+	"fmt"
 	"os/exec"
 	"strings"
 
+	"github.com/pkg/errors"
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type KindCluster struct {
@@ -39,7 +42,10 @@ func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, 
 	if e.engineConfig != "" {
 		cmd = exec.Command("kind", "create", "cluster", "--name", e.name, "--config", e.engineConfig)
 	} else {
-		clusterYaml := e.configYaml(logger)
+		clusterYaml, err := e.configYaml(logger)
+		if err != nil {
+			return "", overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to generate cluster config", err)
+		}
 		cmd = exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
 		cmd.Stdin = strings.NewReader(clusterYaml)
 	}
@@ -54,13 +60,15 @@ func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, 
 		logger.Errorf("error creating StdoutPipe: %v", err)
 	}
 
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start kind command: %w", err)
+	}
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
 		line := stderrScanner.Text()
 		if strings.Contains(line, "ERROR") {
-			logger.Fatal(line)
+			return "", errors.Wrap(errors.New(line), "kind cluster creation failed")
 		} else {
 			if !strings.Contains(line, " • ") {
 				logger.Debug(line)
@@ -76,7 +84,9 @@ func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, 
 		}
 	}
 
-	cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return "", fmt.Errorf("kind command failed: %w", err)
+	}
 	return e.KindContextName(), nil
 }
 
@@ -86,7 +96,9 @@ func (e *Environment) DeleteKindEnvironment(logger *zap.SugaredLogger) error {
 	if err != nil {
 		return err
 	}
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start kind delete command: %w", err)
+	}
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
@@ -100,7 +112,7 @@ func (e *Environment) KindContextName() string {
 }
 
 // Return YAML of cluster config file
-func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
+func (e *Environment) configYaml(logger *zap.SugaredLogger) (string, error) {
 	ports := []KindPortMapping{
 		{
 			ContainerPort: 80,
@@ -143,7 +155,7 @@ nodeRegistration:
 
 	yamlData, err := yaml.Marshal(&template)
 	if err != nil {
-		logger.Fatalf("error: %v", err)
+		return "", overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to marshal cluster configuration template", err)
 	}
-	return string(yamlData)
+	return string(yamlData), nil
 }

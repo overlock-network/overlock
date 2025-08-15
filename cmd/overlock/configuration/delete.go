@@ -2,10 +2,12 @@ package configuration
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/web-seven/overlock/pkg/configuration"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/pkg/configuration"
 )
 
 type deleteCmd struct {
@@ -13,5 +15,8 @@ type deleteCmd struct {
 }
 
 func (c *deleteCmd) Run(ctx context.Context, dynamic *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-	return configuration.DeleteConfiguration(ctx, c.ConfigurationURL, dynamic, logger)
+	if err := configuration.DeleteConfiguration(ctx, c.ConfigurationURL, dynamic, logger); err != nil {
+		return fmt.Errorf("failed to delete configuration: %w", err)
+	}
+	return nil
 }

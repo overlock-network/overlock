@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/web-seven/overlock/internal/resources"
 	"go.uber.org/zap"
 
@@ -16,9 +17,8 @@ type applyCmd struct {
 func (c *applyCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	err := resources.ApplyResources(ctx, client, logger, c.File)
 	if err != nil {
-		logger.Fatal(err)
-	} else {
-		logger.Info("Kndp resources applied successfully!")
+		return errors.Wrap(err, "failed to apply resources")
 	}
+	logger.Info("Kndp resources applied successfully!")
 	return nil
 }

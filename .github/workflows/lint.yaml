@@ -1,0 +1,187 @@
+name: Lint and Error Handling Checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  golangci-lint:
+    name: Go Lint and Error Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --timeout=5m --config=.golangci.yml
+          only-new-issues: false
+          skip-cache: false
+
+  error-patterns:
+    name: Custom Error Pattern Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+
+      - name: Validate custom error types usage
+        run: |
+          echo "=== Validating custom error types are used appropriately ==="
+          
+          # Check if custom error types are imported where they should be
+          echo "Checking for configuration error patterns..."
+          CONFIG_ERRORS=$(find . -name "*.go" -not -path "./vendor/*" -not -name "*_test.go" \
+            -exec grep -l "config.*error\|yaml.*error\|parse.*error" {} \; | \
+            xargs grep -L "overlockerrors\|pkg/errors" | head -5 || true)
+          
+          if [ -n "$CONFIG_ERRORS" ]; then
+            echo "::warning::Files with configuration errors that might benefit from InvalidConfigError:"
+            echo "$CONFIG_ERRORS"
+          fi
+          
+          echo "Checking for Kubernetes connection error patterns..."
+          K8S_ERRORS=$(find . -name "*.go" -not -path "./vendor/*" -not -name "*_test.go" \
+            -exec grep -l "kubernetes.*error\|client.*error\|config.*error" {} \; | \
+            xargs grep -L "overlockerrors\|pkg/errors" | head -5 || true)
+          
+          if [ -n "$K8S_ERRORS" ]; then
+            echo "::warning::Files with K8s errors that might benefit from KubernetesConnectionError:"
+            echo "$K8S_ERRORS"
+          fi
+          
+          echo "Checking for package/registry error patterns..."
+          PKG_ERRORS=$(find . -name "*.go" -not -path "./vendor/*" -not -name "*_test.go" \
+            -exec grep -l "package.*not.*found\|registry.*error" {} \; | \
+            xargs grep -L "overlockerrors\|pkg/errors" | head -5 || true)
+          
+          if [ -n "$PKG_ERRORS" ]; then
+            echo "::warning::Files with package errors that might benefit from PackageNotFoundError:"
+            echo "$PKG_ERRORS"
+          fi
+
+      - name: Error handling completeness check
+        run: |
+          echo "=== Checking error handling completeness ==="
+          
+          # Check for functions that return errors but aren't handled
+          echo "Looking for potential error handling gaps..."
+          TOTAL_ERRORS=0
+          
+          # Find functions that call other functions returning errors
+          UNHANDLED=$(find . -name "*.go" -not -path "./vendor/*" -not -name "*_test.go" \
+            -exec grep -n "err.*=" {} \; | grep -v "if.*err" | grep -v "_.*err" | wc -l || echo "0")
+          
+          echo "Found $UNHANDLED potential error assignments"
+          
+          if [ "$UNHANDLED" -gt 50 ]; then
+            echo "::warning::High number of error assignments detected. Ensure all are properly handled."
+          fi
+
+  build-and-test:
+    name: Build and Test with Error Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: |
+          # Build main packages excluding plugins (plugins are built separately as .so files)
+          go build -v ./cmd/... ./pkg/... ./internal/...
+          
+          # Build plugins as shared libraries
+          go build -buildmode=plugin -o plugins/cosmos.so ./plugins/cosmos/cmd/
+          go build -buildmode=plugin -o plugins/solana.so ./plugins/solana/cmd/
+
+      - name: Test with coverage
+        run: |
+          # Test main packages excluding plugins (plugins don't need separate test coverage)
+          go test -v -race -coverprofile=coverage.out ./cmd/... ./pkg/... ./internal/...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Verify custom error types
+        run: |
+          echo "=== Testing custom error types ==="
+          go test -v ./pkg/errors/...
+
+      - name: Check for test coverage on error handling
+        run: |
+          echo "=== Analyzing error handling test coverage ==="
+          # Extract coverage for error-related functions
+          if [ -f coverage.out ]; then
+            echo "Coverage report generated successfully"
+            go tool cover -func=coverage.out | grep -E "(Error|error)" | head -10 || echo "No error-related functions in coverage report"
+          fi
+
+  summary:
+    name: Lint Summary
+    runs-on: ubuntu-latest
+    needs: [golangci-lint, error-patterns, build-and-test]
+    if: always()
+    steps:
+      - name: Report Status
+        run: |
+          echo "=== Lint and Error Handling Check Summary ==="
+          echo "golangci-lint: ${{ needs.golangci-lint.result }}"
+          echo "error-patterns: ${{ needs.error-patterns.result }}"
+          echo "build-and-test: ${{ needs.build-and-test.result }}"
+          
+          if [ "${{ needs.golangci-lint.result }}" != "success" ] || \
+             [ "${{ needs.error-patterns.result }}" != "success" ] || \
+             [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "❌ Some checks failed. Please review the error handling and linting issues above."
+            exit 1
+          else
+            echo "✅ All error handling and linting checks passed!"
+          fi
