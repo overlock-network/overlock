@@ -2,6 +2,7 @@ package eventwatcher
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -14,10 +15,10 @@ import (
 
 type ReconciliationCallback func(payload map[string]string)
 
-func StartWatching(config *rest.Config, callback ReconciliationCallback) {
+func StartWatching(config *rest.Config, callback ReconciliationCallback) error {
 	clientset, err := kube.Client(config)
 	if err != nil {
-		log.Fatalf("Error creating Kubernetes client: %v", err)
+		return fmt.Errorf("error creating Kubernetes client: %w", err)
 	}
 
 	listOptions := metav1.ListOptions{}
@@ -25,7 +26,7 @@ func StartWatching(config *rest.Config, callback ReconciliationCallback) {
 	watcher, err := clientset.CoreV1().Events("").Watch(ctx, listOptions)
 	if err != nil {
 		log.Printf("[ERROR] Error starting event watcher: %v", err)
-		return
+		return fmt.Errorf("error starting event watcher: %w", err)
 	}
 	defer watcher.Stop()
 
@@ -51,6 +52,7 @@ func StartWatching(config *rest.Config, callback ReconciliationCallback) {
 		}
 	}
 	log.Println("[INFO] Event watcher channel closed.")
+	return nil
 }
 
 func isReconciliationSuccessful(e *v1.Event) bool {

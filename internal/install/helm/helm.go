@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/afero"
@@ -70,6 +70,8 @@ type helmPuller interface {
 
 type puller struct { //nolint:unused
 	*action.Pull
+	DestDir string
+	Version string
 }
 
 func (p *puller) SetDestDir(dir string) {
@@ -78,6 +80,13 @@ func (p *puller) SetDestDir(dir string) {
 
 func (p *puller) SetVersion(version string) {
 	p.Version = version
+}
+
+func (p *puller) Run(chart string) (string, error) {
+	p.Pull.Settings = &cli.EnvSettings{}
+	p.Pull.DestDir = p.DestDir
+	p.Pull.Version = p.Version
+	return p.Pull.Run(chart)
 }
 
 type helmGetter interface {
@@ -306,7 +315,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 		p.Password = h.password
 		p.Settings = &cli.EnvSettings{}
 		p.RepoURL = h.repoURL.String()
-		h.pullClient = &puller{p}
+		h.pullClient = &puller{Pull: p}
 	}
 
 	// Get Client

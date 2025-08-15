@@ -2,13 +2,14 @@ package configuration
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/web-seven/overlock/pkg/configuration"
 	"go.uber.org/zap"
-
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/pkg/configuration"
 )
 
 type applyCmd struct {
@@ -19,7 +20,9 @@ type applyCmd struct {
 
 func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
 	cfg := configuration.New(c.Link)
-	cfg.Apply(ctx, config, logger)
+	if err := cfg.Apply(ctx, config, logger); err != nil {
+		return fmt.Errorf("failed to apply configuration: %w", err)
+	}
 	if !c.Wait {
 		return nil
 	}
@@ -28,9 +31,12 @@ func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *r
 	if c.Timeout != "" {
 		timeout, err := time.ParseDuration(c.Timeout)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse timeout duration: %w", err)
 		}
 		timeoutChan = time.After(timeout)
 	}
-	return configuration.HealthCheck(ctx, dc, c.Link, c.Wait, timeoutChan, logger)
+	if err := configuration.HealthCheck(ctx, dc, c.Link, c.Wait, timeoutChan, logger); err != nil {
+		return fmt.Errorf("configuration health check failed: %w", err)
+	}
+	return nil
 }

@@ -53,6 +53,5 @@ func (c *subscribeCmd) Run(clientset *kubernetes.Clientset, config *rest.Config,
 		EnvironmentType: c.EnvironmentType,
 		Availability:    c.Availability,
 	}
-	network.Subscribe(c.Engine, c.Creator, c.Host, c.Port, c.Path, c.GrpcAddress, clientset, config, dc, provider, c.ImportKeyName, c.ImportKeyPath, c.ChainID, c.KeyringBackend)
-	return nil
+	return network.Subscribe(c.Engine, c.Creator, c.Host, c.Port, c.Path, c.GrpcAddress, clientset, config, dc, provider, c.ImportKeyName, c.ImportKeyPath, c.ChainID, c.KeyringBackend)
 }

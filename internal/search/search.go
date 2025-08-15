@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/web-seven/overlock/internal/github"
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"github.com/web-seven/overlock/pkg/registry"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -34,7 +35,7 @@ func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *r
 			}
 			return tableRegs, nil
 		default:
-			logger.Errorf("Registry %s is not supported", registryUrl)
+			return nil, overlockerrors.NewPackageNotFoundError(query, registryUrl, "", "registry type not supported for package search")
 		}
 
 	}

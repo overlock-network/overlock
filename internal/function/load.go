@@ -37,7 +37,7 @@ func (c *Function) UpgradeFunction(ctx context.Context, config *rest.Config, dc 
 		pkgs = append(pkgs, pkg)
 	}
 	var err error
-	c.Name, err = c.UpgradeVersion(ctx, dc, c.Name, pkgs)
+	c.Name, err = c.Package.UpgradeVersion(ctx, dc, c.Name, pkgs)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,9 @@ func (c *Function) LoadStdinArchive(stream *bufio.Reader) error {
 	if err != nil {
 		return err
 	}
-	tmpFile.Write(stdin)
+	if _, err := tmpFile.Write(stdin); err != nil {
+		return fmt.Errorf("failed to write to temp file: %w", err)
+	}
 	return c.Image.LoadPathArchive(tmpFile.Name())
 }
 

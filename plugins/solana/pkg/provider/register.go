@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 
-	"github.com/gagliardetto/solana-go"
+	solana "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/near/borsh-go"
+	borsh "github.com/near/borsh-go"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	"go.uber.org/zap"
 )
@@ -69,9 +69,9 @@ func Register(logger zap.SugaredLogger, grpcAddress, programId, keyPath string, 
 	instruction := solana.NewInstruction(
 		ID,
 		solana.AccountMetaSlice{
-			{PublicKey: payer, IsSigner: true, IsWritable: true},
-			{PublicKey: providerPubkey, IsSigner: true, IsWritable: true},
-			{PublicKey: solana.SystemProgramID, IsSigner: false, IsWritable: false},
+			&solana.AccountMeta{PublicKey: payer, IsSigner: true, IsWritable: true},
+			&solana.AccountMeta{PublicKey: providerPubkey, IsSigner: true, IsWritable: true},
+			&solana.AccountMeta{PublicKey: solana.SystemProgramID, IsSigner: false, IsWritable: false},
 		},
 		fullData,
 	)

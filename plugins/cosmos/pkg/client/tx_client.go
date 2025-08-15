@@ -3,7 +3,6 @@ package client
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -18,11 +17,11 @@ import (
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 )
 
-func BuildClientContext(from, rpcUri, chainId, keyringBackend string) client.Context {
+func BuildClientContext(from, rpcUri, chainId, keyringBackend string) (client.Context, error) {
 
 	tempKeyringDir, err := os.MkdirTemp("", "overlock-keyring-*")
 	if err != nil {
-		log.Fatalf("Failed to create temporary keyring directory: %v", err)
+		return client.Context{}, fmt.Errorf("failed to create temporary keyring directory: %w", err)
 	}
 
 	defer os.RemoveAll(tempKeyringDir)
@@ -33,12 +32,12 @@ func BuildClientContext(from, rpcUri, chainId, keyringBackend string) client.Con
 	kr, err := keyring.New("", keyringBackend, tempKeyringDir, os.Stdin, encCfg.Codec)
 
 	if err != nil {
-		log.Fatalf("Failed to initialize keyring: %v", err)
+		return client.Context{}, fmt.Errorf("failed to initialize keyring: %w", err)
 	}
 
 	clientRpc, err := client.NewClientFromNode(rpcUri)
 	if err != nil {
-		log.Fatalf("Failed to create RPC client: %v", err)
+		return client.Context{}, fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
 	ctx := client.Context{}.
@@ -53,7 +52,7 @@ func BuildClientContext(from, rpcUri, chainId, keyringBackend string) client.Con
 
 	ctx = ctx.WithAccountRetriever(authtypes.AccountRetriever{})
 
-	return ctx
+	return ctx, nil
 }
 
 func ImportKey(ctx client.Context, name string, keyFile string) error {

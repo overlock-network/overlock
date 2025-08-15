@@ -3,6 +3,7 @@ package configuration
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -27,7 +28,7 @@ func (c *Configuration) UpgradeConfiguration(ctx context.Context, config *rest.C
 		pkgs = append(pkgs, pkg)
 	}
 	var err error
-	c.Name, err = c.UpgradeVersion(ctx, dc, c.Name, pkgs)
+	c.Name, err = c.Package.UpgradeVersion(ctx, dc, c.Name, pkgs)
 	if err != nil {
 		return err
 	}
@@ -53,7 +54,9 @@ func (c *Configuration) LoadStdinArchive(ctx context.Context, config *rest.Confi
 	if err != nil {
 		return err
 	}
-	tmpFile.Write(stdin)
+	if _, err := tmpFile.Write(stdin); err != nil {
+		return fmt.Errorf("failed to write to temp file: %w", err)
+	}
 	err = c.Image.LoadPathArchive(tmpFile.Name())
 	if err != nil {
 		return err

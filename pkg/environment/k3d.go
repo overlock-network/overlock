@@ -2,9 +2,11 @@ package environment
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +27,7 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, e
 
 	err := cmd.Run()
 	if err != nil {
-		logger.Fatalf("Error creating k3d cluster: %v", err)
+		return "", errors.Wrap(err, "error creating k3d cluster")
 	}
 
 	logger.Info("k3d cluster created successfully")
@@ -38,7 +40,9 @@ func (e *Environment) DeleteK3dEnvironment(logger *zap.SugaredLogger) error {
 	if err != nil {
 		return err
 	}
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start k3d command: %w", err)
+	}
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {

@@ -280,7 +280,7 @@ func ExtractPackageContent(layer conregv1.Layer) ([][]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get uncompressed layer")
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	objs, err := load(rc)
 	if err != nil {

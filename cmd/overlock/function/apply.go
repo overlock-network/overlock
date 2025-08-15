@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/web-seven/overlock/internal/function"
 	"go.uber.org/zap"
-
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/function"
 )
 
 type applyCmd struct {
@@ -18,7 +18,9 @@ type applyCmd struct {
 }
 
 func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
-	function.ApplyFunction(ctx, c.Link, config, logger)
+	if err := function.ApplyFunction(ctx, c.Link, config, logger); err != nil {
+		return err
+	}
 	if !c.Wait {
 		return nil
 	}

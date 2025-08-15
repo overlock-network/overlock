@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
@@ -26,11 +26,11 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, providerMeta crossplanev1beta1.MsgCreateProvider, importKeyName, importKeyPath, chainId, keyringBackend string) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, providerMeta crossplanev1beta1.MsgCreateProvider, importKeyName, importKeyPath, chainId, keyringBackend string) error {
 
 	err := provider.ValidateProvider(&providerMeta)
 	if err != nil {
-		log.Fatalf("Provider validation failed: %v", err)
+		return fmt.Errorf("provider validation failed: %w", err)
 	}
 	rpcURI := fmt.Sprintf("tcp://%s:%s", host, port)
 
@@ -57,7 +57,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		select {
 		case <-ctx.Done():
 			logger.Info("WebSocket listener stopped.")
-			return
+			return nil
 		default:
 		}
 
@@ -71,7 +71,9 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		logger.Info("Connected to WebSocket")
 
 		if !registered {
-			provider.Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend, providerMeta)
+			if err := provider.Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend, providerMeta); err != nil {
+				return fmt.Errorf("provider registration failed: %w", err)
+			}
 			registered = true
 		}
 

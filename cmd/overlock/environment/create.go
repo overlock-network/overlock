@@ -6,9 +6,11 @@ import (
 	"os"
 
 	"dario.cat/mergo"
-	"github.com/web-seven/overlock/pkg/environment"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
+
+	"github.com/web-seven/overlock/pkg/environment"
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
 
 type createCmd struct {
@@ -38,7 +40,6 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	}
 	cfg, err := loadConfig(configPath)
 	if err != nil {
-
 		if errors.Is(err, os.ErrNotExist) {
 			if userProvidedConfig {
 				logger.Errorf("Configuration file not found at specified path: %s", configPath)
@@ -54,7 +55,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	if cfg != nil {
 		if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
 			logger.Errorf("Failed to merge configuration: %v", err)
-			return err
+			return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
 		}
 	}
 
@@ -80,7 +81,7 @@ func loadConfig(path string) (*createOptions, error) {
 	}
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+		return nil, overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to parse configuration file", err)
 	}
 
 	return &cfg, nil
