@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	cosmossdk.io/x/tx v0.13.7
+	dario.cat/mergo v1.0.0
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/cosmos/cosmos-sdk v0.50.13
@@ -14,7 +15,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/iancoleman/strcase v0.3.0
-	github.com/overlock-network/api v0.0.0-20250506085608-290c182273ad
+	github.com/overlock-network/api v0.0.30
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
 	go.uber.org/zap v1.26.0
@@ -42,7 +43,6 @@ require (
 	cosmossdk.io/log v1.4.1 // indirect
 	cosmossdk.io/math v1.4.0 // indirect
 	cosmossdk.io/store v1.1.1 // indirect
-	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect

@@ -1,0 +1,32 @@
+name: Dependency Health
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-health:
+    name: Check Dependency Health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Check go mod tidy
+        run: |
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "::error::go.mod or go.sum are not tidy. Please run 'go mod tidy'."
+            git diff go.mod go.sum
+            exit 1
+          fi
+
+      - name: Verify dependencies
+        run: go mod verify

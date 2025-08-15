@@ -17,7 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
-	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/configuration"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/provider"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
@@ -79,7 +78,6 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		queries := []string{
 			"message.action='/overlock.crossplane.v1beta1.MsgCreateEnvironment'",
 			"message.action='/overlock.storage.v1beta1.MsgCreateRegistry'",
-			"message.action='/overlock.crossplane.v1beta1.MsgCreateConfiguration'",
 		}
 		if creator != "" {
 			for i := range queries {
@@ -117,12 +115,6 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 				go createRegistry(engine, context.Background(), logger, regMsg, client, config, grpcAddress)
 			}
 
-			var confMsg crossplanev1beta1.MsgCreateConfiguration
-			if decodedConfMsg, err := processMessage(message, &confMsg, "/overlock.crossplane.v1beta1.MsgCreateConfiguration"); err == nil {
-				logger.Infof("Received configuration creation request: %s", decodedConfMsg.Metadata.Name)
-				go configuration.CreateConfiguration(context.Background(), logger, confMsg, config, dc)
-				continue
-			}
 		}
 
 		logger.Warn("Reconnecting to WebSocket in 3 seconds...")
