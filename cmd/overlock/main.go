@@ -14,6 +14,7 @@ import (
 	"github.com/web-seven/overlock/cmd/overlock/provider"
 	"github.com/web-seven/overlock/cmd/overlock/version"
 	"github.com/web-seven/overlock/internal/engine"
+	"github.com/web-seven/overlock/internal/interactive"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
@@ -159,8 +160,31 @@ func main() {
 	kongplete.Complete(parser)
 
 	if len(os.Args) == 1 {
-		_, err := parser.Parse([]string{"--help"})
-		parser.FatalIfErrorf(err)
+		ctx := context.Background()
+
+		config, err := ctrl.GetConfig()
+		var dynamicClient dynamic.Interface
+		if err == nil {
+			dynamicClient, err = dynamic.NewForConfig(config)
+			if err != nil {
+				dynamicClient = nil
+			}
+		} else {
+			dynamicClient = nil
+		}
+
+		cfg := zap.NewDevelopmentConfig()
+		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		cfg.EncoderConfig.TimeKey = ""
+		cfg.EncoderConfig.CallerKey = ""
+		logger, err := cfg.Build()
+		if err != nil {
+			parser.Errorf("failed to build logger: %v", err)
+		}
+
+		if err := interactive.Run(ctx, dynamicClient, logger.Sugar()); err != nil {
+			parser.Errorf("error in interactive mode: %v", err)
+		}
 		return
 	}
 
