@@ -39,10 +39,14 @@ func (m *Model) updateTable() {
 
 	var rows []table.Row
 
+	// Get current tab state
+	state := m.tabStates[m.activeTab]
+	items := state.items
+
 	switch m.activeTab {
 	case ConfigurationsTab:
-		rows = make([]table.Row, len(m.configurations))
-		for i, config := range m.configurations {
+		rows = make([]table.Row, len(items))
+		for i, config := range items {
 			name := truncateString(config.Name, nameWidth-theme.CellPadding)
 			pkg := truncateString(config.Package, packageWidth-theme.CellPadding)
 			version := truncateString(config.Version, versionWidth-theme.CellPadding)
@@ -52,8 +56,8 @@ func (m *Model) updateTable() {
 			rows[i] = table.Row{name, pkg, version, status, date, desc}
 		}
 	case ProvidersTab:
-		rows = make([]table.Row, len(m.providers))
-		for i, provider := range m.providers {
+		rows = make([]table.Row, len(items))
+		for i, provider := range items {
 			name := truncateString(provider.Name, nameWidth-theme.CellPadding)
 			pkg := truncateString(provider.Package, packageWidth-theme.CellPadding)
 			version := truncateString(provider.Version, versionWidth-theme.CellPadding)
@@ -63,8 +67,8 @@ func (m *Model) updateTable() {
 			rows[i] = table.Row{name, pkg, version, status, date, desc}
 		}
 	case FunctionsTab:
-		rows = make([]table.Row, len(m.functions))
-		for i, function := range m.functions {
+		rows = make([]table.Row, len(items))
+		for i, function := range items {
 			name := truncateString(function.Name, nameWidth-theme.CellPadding)
 			pkg := truncateString(function.Package, packageWidth-theme.CellPadding)
 			version := truncateString(function.Version, versionWidth-theme.CellPadding)

@@ -5,12 +5,16 @@ const (
 	MinTerminalHeight  = 10
 	DefaultWidth       = 120
 	DefaultTableHeight = 15
+)
 
+const (
 	WindowPadding    = 4
 	UIOverhead       = 8
 	TableBorderSpace = 12
 	CellPadding      = 4
+)
 
+const (
 	NameWidthPercent = 18
 	NameMinWidth     = 20
 	NameMaxWidth     = 35
@@ -32,11 +36,20 @@ const (
 	DateMaxWidth     = 16
 
 	DescMinWidth = 10
+)
 
+const (
 	EllipsisLength   = 3
 	MinEllipsisWidth = 3
+)
 
+const (
 	TabCount = 3
+)
+
+const (
+	DefaultPageSize = 50
+	MaxPageSize     = 200
 )
 
 const (

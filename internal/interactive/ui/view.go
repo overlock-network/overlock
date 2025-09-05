@@ -14,10 +14,7 @@ func (m Model) View() string {
 	tabs := m.renderTabs()
 	content.WriteString(tabs)
 
-	if m.loading {
-		status := theme.StatusStyle.Render("Loading data...")
-		content.WriteString("\n" + status + "\n\n")
-	} else if m.err != nil {
+	if m.err != nil {
 		errorStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(theme.ColorRed)).
 			Bold(true)
@@ -25,8 +22,12 @@ func (m Model) View() string {
 		content.WriteString("\n" + status + "\n\n")
 	}
 
-	if !m.loading && m.err == nil {
+	state := m.tabStates[m.activeTab]
+	if len(state.items) > 0 || state.initialized {
 		content.WriteString(m.renderConnectedTable())
+	} else if state.loading {
+		status := theme.StatusStyle.Render("Loading data...")
+		content.WriteString("\n" + status + "\n\n")
 	}
 
 	help := m.renderHelp()
@@ -80,6 +81,15 @@ func (m Model) renderTabs() string {
 }
 
 func (m Model) renderConnectedTable() string {
+	var tableContent strings.Builder
+
+	paginationInfo := m.renderPaginationInfo()
+	if paginationInfo != "" {
+		tableContent.WriteString(paginationInfo + "\n")
+	}
+
+	tableContent.WriteString(m.table.View())
+
 	connectedTableStyle := theme.BaseStyle.Copy().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(theme.ColorBorder)).
@@ -88,19 +98,62 @@ func (m Model) renderConnectedTable() string {
 		BorderBottom(true).
 		BorderTop(true)
 
-	return connectedTableStyle.Render(m.table.View())
+	return connectedTableStyle.Render(tableContent.String())
+}
+
+func (m Model) renderPaginationInfo() string {
+	state := m.tabStates[m.activeTab]
+	if !state.initialized && !state.loading {
+		return ""
+	}
+
+	var info strings.Builder
+
+	if state.loading {
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.ColorHighlight)).
+			Bold(true)
+		info.WriteString(loadingStyle.Render("Loading..."))
+		if len(state.items) > 0 {
+			info.WriteString(" ")
+		}
+	}
+
+	if len(state.items) > 0 {
+		countStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.ColorWhite))
+
+		if state.total > 0 {
+			info.WriteString(countStyle.Render(fmt.Sprintf("Showing %d of %d items", len(state.items), state.total)))
+		} else {
+			info.WriteString(countStyle.Render(fmt.Sprintf("Showing %d items", len(state.items))))
+		}
+
+		if state.hasMore {
+			moreStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.ColorHighlight))
+			info.WriteString(moreStyle.Render(" • Press 'm' to load more"))
+		}
+	}
+
+	return info.String()
 }
 
 func (m Model) renderHelp() string {
-	baseHelp := "Navigation: ↑/↓ select • Tab cycle • r refresh • q quit"
+	state := m.tabStates[m.activeTab]
+	baseHelp := "↑/↓ select • Tab cycle • r refresh • R refresh all • q quit"
+
+	if state.hasMore && !state.loading {
+		baseHelp += " • m load more"
+	}
 
 	switch m.activeTab {
 	case ConfigurationsTab:
-		return baseHelp + " • Showing: Crossplane configurations"
+		return baseHelp + " • Crossplane configurations"
 	case ProvidersTab:
-		return baseHelp + " • Showing: Crossplane providers"
+		return baseHelp + " • Crossplane providers"
 	case FunctionsTab:
-		return baseHelp + " • Showing: Crossplane functions"
+		return baseHelp + " • Crossplane functions"
 	default:
 		return baseHelp
 	}

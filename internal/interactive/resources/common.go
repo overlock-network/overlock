@@ -9,6 +9,29 @@ import (
 	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
 )
 
+type ResourceRow struct {
+	Name        string
+	Package     string
+	Version     string
+	Status      string
+	InstallDate string
+	Description string
+}
+
+type PaginationOptions struct {
+	Limit  int
+	Offset int
+	Token  string
+}
+
+type ResourceResult struct {
+	Items         []ResourceRow
+	Total         int
+	HasMore       bool
+	NextToken     string
+	ProcessedTime string
+}
+
 const (
 	ConditionTypeReady     = "Ready"
 	ConditionTypeInstalled = "Installed"

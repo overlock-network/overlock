@@ -16,7 +16,7 @@ func Run(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.Sugar
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("error running interactive mode: %w", err)
+		return fmt.Errorf("failed to initialize TUI program: %w", err)
 	}
 
 	return nil

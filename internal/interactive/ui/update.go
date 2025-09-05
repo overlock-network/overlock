@@ -14,23 +14,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc", "ctrl+c", "q":
 			return m, tea.Quit
 		case "r":
-			m.loading = true
-			return m, tea.Batch(
-				m.loadConfigurations(),
-				m.loadProviders(),
-				m.loadFunctions(),
-			)
+			m.tabStates[m.activeTab].loading = true
+			return m, m.loadActiveTab()
+		case "R":
+			for tab := range m.tabStates {
+				m.tabStates[tab].items = []ResourceRow{}
+				m.tabStates[tab].loaded = 0
+				m.tabStates[tab].hasMore = true
+				m.tabStates[tab].initialized = false
+			}
+			m.tabStates[m.activeTab].loading = true
+			return m, m.loadActiveTab()
 		case "tab":
 			m.activeTab = (m.activeTab + 1) % theme.TabCount
+			var cmd tea.Cmd
+			if !m.tabStates[m.activeTab].initialized {
+				cmd = m.loadActiveTab()
+			}
 			m.updateTable()
+			return m, cmd
+		case "m", "ctrl+m":
+			if m.tabStates[m.activeTab].hasMore && !m.tabStates[m.activeTab].loading {
+				m.tabStates[m.activeTab].loading = true
+				return m, m.loadMore(m.activeTab)
+			}
 			return m, nil
 		}
 
 	case configurationsLoadedMsg:
-		m.loading = false
+		state := m.tabStates[ConfigurationsTab]
+		state.loading = false
 		m.err = msg.err
-		if msg.err == nil {
-			m.configurations = msg.configurations
+		if msg.err == nil && msg.result != nil {
+			if len(state.items) == 0 {
+				state.items = msg.result.Items
+			} else {
+				state.items = append(state.items, msg.result.Items...)
+			}
+			state.total = msg.result.Total
+			state.loaded = len(state.items)
+			state.hasMore = msg.result.HasMore
+			state.initialized = true
 			if m.activeTab == ConfigurationsTab {
 				m.updateTable()
 			}
@@ -38,8 +62,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case providersLoadedMsg:
-		if msg.err == nil {
-			m.providers = msg.providers
+		state := m.tabStates[ProvidersTab]
+		state.loading = false
+		if msg.err == nil && msg.result != nil {
+			if len(state.items) == 0 {
+				state.items = msg.result.Items
+			} else {
+				state.items = append(state.items, msg.result.Items...)
+			}
+			state.total = msg.result.Total
+			state.loaded = len(state.items)
+			state.hasMore = msg.result.HasMore
+			state.initialized = true
 			if m.activeTab == ProvidersTab {
 				m.updateTable()
 			}
@@ -47,8 +81,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case functionsLoadedMsg:
-		if msg.err == nil {
-			m.functions = msg.functions
+		state := m.tabStates[FunctionsTab]
+		state.loading = false
+		if msg.err == nil && msg.result != nil {
+			if len(state.items) == 0 {
+				state.items = msg.result.Items
+			} else {
+				state.items = append(state.items, msg.result.Items...)
+			}
+			state.total = msg.result.Total
+			state.loaded = len(state.items)
+			state.hasMore = msg.result.HasMore
+			state.initialized = true
 			if m.activeTab == FunctionsTab {
 				m.updateTable()
 			}
