@@ -15,7 +15,7 @@ import (
 
 const (
 	kyvernoChartName    = "kyverno"
-	kyvernoChartVersion = "3.2.5"
+	kyvernoChartVersion = "3.4.4"
 	kyvernoReleaseName  = "kyverno"
 	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
 	kyvernoNamespace    = "kyverno"
