@@ -44,7 +44,7 @@ func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, 
 		clusters := strings.Split(string(output), "\n")
 		for _, cluster := range clusters {
 			if strings.TrimSpace(cluster) == e.name {
-				logger.Warnf("Environment '%s' already exists. Skipping creation and using existing environment.", e.name)
+				logger.Infof("Environment '%s' already exists. Using existing environment.", e.name)
 				return e.KindContextName(), nil
 			}
 		}
