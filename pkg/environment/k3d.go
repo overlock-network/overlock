@@ -16,7 +16,7 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, e
 	checkCmd := exec.Command("k3d", "cluster", "list", "-o", "json")
 	output, err := checkCmd.Output()
 	if err == nil && strings.Contains(string(output), `"`+e.name+`"`) {
-		logger.Warnf("Environment '%s' already exists. Skipping creation and using existing environment.", e.name)
+		logger.Infof("Environment '%s' already exists. Using existing environment.", e.name)
 		return e.K3dContextName(), nil
 	}
 

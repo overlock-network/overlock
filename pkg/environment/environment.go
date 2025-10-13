@@ -187,9 +187,15 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	logger.Debug("Installing engine")
 	err = engine.InstallEngine(ctx, configClient, params, logger)
 	if err != nil {
-		return err
+		// Check if engine is already installed
+		if strings.Contains(err.Error(), "chart already installed") {
+			logger.Info("Engine already installed, skipping installation")
+		} else {
+			return err
+		}
+	} else {
+		logger.Debug("Done")
 	}
-	logger.Debug("Done")
 
 	// Create admin service account if requested
 	if e.createAdminServiceAccount {
