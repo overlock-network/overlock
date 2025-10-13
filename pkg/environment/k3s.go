@@ -10,6 +10,12 @@ import (
 )
 
 func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, error) {
+	// Check if k3s is already running with this node name
+	checkCmd := exec.Command("pgrep", "-f", "k3s.*--node-name.*"+e.name)
+	if err := checkCmd.Run(); err == nil {
+		logger.Warnf("Environment '%s' already exists. Skipping creation and using existing environment.", e.name)
+		return e.K3sContextName(), nil
+	}
 
 	args := []string{
 		"k3s", "server",
