@@ -5,12 +5,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, error) {
+	// Check if cluster already exists
+	checkCmd := exec.Command("k3d", "cluster", "list", "-o", "json")
+	output, err := checkCmd.Output()
+	if err == nil && strings.Contains(string(output), `"`+e.name+`"`) {
+		logger.Infof("Environment '%s' already exists. Using existing environment.", e.name)
+		return e.K3dContextName(), nil
+	}
 
 	args := []string{
 		"cluster", "create", e.name,
@@ -25,8 +33,7 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, e
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return "", errors.Wrap(err, "error creating k3d cluster")
 	}
 
