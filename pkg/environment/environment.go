@@ -27,18 +27,20 @@ import (
 )
 
 type Environment struct {
-	name           string
-	engine         string
-	engineConfig   string
-	httpPort       int
-	httpsPort      int
-	mountPath      string
-	context        string
-	options        EnvironmentOptions
-	disablePorts   bool
-	configurations []string
-	functions      []string
-	providers      []string
+	name                      string
+	engine                    string
+	engineConfig              string
+	httpPort                  int
+	httpsPort                 int
+	mountPath                 string
+	context                   string
+	options                   EnvironmentOptions
+	disablePorts              bool
+	configurations            []string
+	functions                 []string
+	providers                 []string
+	createAdminServiceAccount bool
+	adminServiceAccountName   string
 }
 
 // New Environment entity
@@ -188,6 +190,18 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		return err
 	}
 	logger.Debug("Done")
+
+	// Create admin service account if requested
+	if e.createAdminServiceAccount {
+		logger.Debug("Creating admin service account")
+		_, err = kube.CreateAdminServiceAccount(ctx, configClient, e.adminServiceAccountName, namespace.Namespace, logger)
+		if err != nil {
+			logger.Errorf("Failed to create admin service account: %v", err)
+			return err
+		}
+		logger.Debug("Done")
+	}
+
 	return nil
 }
 
@@ -365,6 +379,12 @@ func (e *Environment) WithFunctions(functions []string) *Environment {
 }
 func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
 	e.disablePorts = disablePorts
+	return e
+}
+
+func (e *Environment) WithAdminServiceAccount(create bool, name string) *Environment {
+	e.createAdminServiceAccount = create
+	e.adminServiceAccountName = name
 	return e
 }
 
