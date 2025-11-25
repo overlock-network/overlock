@@ -3,7 +3,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/pterm/pterm"
 	"go.uber.org/zap"
@@ -24,7 +23,6 @@ const (
 type AdminServiceAccountInfo struct {
 	Name      string
 	Namespace string
-	Token     string
 }
 
 // CreateAdminServiceAccount creates a service account with cluster-admin privileges
@@ -52,16 +50,9 @@ func CreateAdminServiceAccount(ctx context.Context, config *rest.Config, service
 		return nil, fmt.Errorf("failed to create cluster role binding: %w", err)
 	}
 
-	// Generate token
-	token, err := createServiceAccountToken(ctx, client, serviceAccountName, targetNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create service account token: %w", err)
-	}
-
 	info := &AdminServiceAccountInfo{
 		Name:      sa.Name,
 		Namespace: sa.Namespace,
-		Token:     token,
 	}
 
 	displayServiceAccountInfo(info, logger)
@@ -132,46 +123,6 @@ func createClusterRoleBinding(ctx context.Context, client *kubernetes.Clientset,
 	return nil
 }
 
-// createServiceAccountToken creates a token for the service account
-func createServiceAccountToken(ctx context.Context, client *kubernetes.Clientset, serviceAccountName, namespace string) (string, error) {
-	secretName := fmt.Sprintf("%s-token", serviceAccountName)
-	
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				"kubernetes.io/service-account.name": serviceAccountName,
-			},
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "overlock",
-				"app.kubernetes.io/component":  "admin-service-account",
-			},
-		},
-		Type: corev1.SecretTypeServiceAccountToken,
-	}
-
-	_, err := client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return "", err
-	}
-
-	// Wait for token to be populated
-	for i := 0; i < 30; i++ {
-		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-		if err != nil {
-			return "", err
-		}
-
-		if token, exists := secret.Data["token"]; exists && len(token) > 0 {
-			return string(token), nil
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	return "", fmt.Errorf("timeout waiting for service account token to be populated")
-}
 
 // displayServiceAccountInfo displays the service account information to the user
 func displayServiceAccountInfo(info *AdminServiceAccountInfo, logger *zap.SugaredLogger) {
