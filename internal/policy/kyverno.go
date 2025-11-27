@@ -89,6 +89,9 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 			"kind":       "ClusterPolicy",
 			"metadata": map[string]interface{}{
 				"name": "overlock." + registry.Name,
+				"annotations": map[string]interface{}{
+					"pod-policies.kyverno.io/autogen-controllers": "none",
+				},
 			},
 			"spec": map[string]interface{}{
 				"generateExisting": true,
