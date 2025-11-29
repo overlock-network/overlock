@@ -9,9 +9,10 @@ import (
 )
 
 type Cmd struct {
-	Create createCmd `cmd:"" help:"Create registry"`
-	List   listCmd   `cmd:"" help:"List registries"`
-	Delete deleteCmd `cmd:"" help:"Delete registry"`
+	Create    createCmd    `cmd:"" help:"Create registry"`
+	List      listCmd      `cmd:"" help:"List registries"`
+	Delete    deleteCmd    `cmd:"" help:"Delete registry"`
+	LoadImage loadImageCmd `cmd:"" name:"load-image" help:"Load OCI image to registry"`
 }
 
 func Predictors(ctx context.Context, client *kubernetes.Clientset) map[string]complete.Predictor {
