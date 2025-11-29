@@ -290,3 +290,78 @@ func getFreePort() (port int, err error) {
 	}
 	return
 }
+
+// ListLocalRegistryTags lists all tags for an image in the local registry
+func ListLocalRegistryTags(ctx context.Context, imageName string, config *rest.Config, logger *zap.SugaredLogger) ([]string, error) {
+	client, err := kube.Client(config)
+	if err != nil {
+		return nil, err
+	}
+
+	pods := client.CoreV1().Pods(namespace.Namespace)
+	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(regs.Items) == 0 {
+		return nil, fmt.Errorf("local registry not found")
+	}
+
+	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	lPort, err := getFreePort()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("Found local registry with name: %s", regs.Items[0].GetName())
+
+	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", namespace.Namespace, regs.Items[0].GetName())
+	hostIP := strings.TrimLeft(config.Host, "htps:/")
+	serverURL := url.URL{Scheme: "https", Path: path, Host: hostIP}
+
+	logger.Debugf("Dialer server URL: %s", serverURL.String())
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
+	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
+	out, errOut := new(bytes.Buffer), new(bytes.Buffer)
+	forwarder, err := portforward.New(dialer, []string{fmt.Sprint(lPort) + ":" + fmt.Sprint(deployPort)}, stopChan, readyChan, out, errOut)
+	if err != nil {
+		return nil, err
+	}
+
+	var tags []string
+	var listErr error
+
+	go func() {
+		for range readyChan {
+		}
+		if len(errOut.String()) != 0 {
+			close(stopChan)
+			return
+		}
+		repoName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
+		logger.Debugf("Listing tags for repository: %s", repoName)
+		repo, err := name.NewRepository(repoName, name.Insecure)
+		if err != nil {
+			listErr = err
+			close(stopChan)
+			return
+		}
+		tags, listErr = remote.List(repo)
+		if listErr != nil {
+			logger.Debugf("Failed to list tags: %v", listErr)
+		}
+		close(stopChan)
+	}()
+
+	if err = forwarder.ForwardPorts(); err != nil {
+		return nil, err
+	}
+
+	return tags, listErr
+}
