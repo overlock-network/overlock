@@ -3,6 +3,7 @@ package registry
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/web-seven/overlock/internal/certmanager"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
 	"github.com/web-seven/overlock/internal/policy"
@@ -34,11 +36,20 @@ import (
 )
 
 const (
-	deployName = "overlock-registry"
-	svcName    = "registry"
-	deployPort = 5000
-	svcPort    = 80
-	nodePort   = 30100
+	deployName       = "overlock-registry"
+	svcName          = "registry"
+	deployPort       = 5000
+	deployPortTLS    = 5443
+	svcPort          = 80
+	svcPortTLS       = 443
+	nodePort         = 30100
+	tlsCertPath      = "/certs/tls.crt"
+	tlsKeyPath       = "/certs/tls.key"
+	tlsVolumeName    = "registry-tls"
+	tlsMountPath     = "/certs"
+	configVolumeName = "registry-config"
+	configMountPath  = "/etc/docker/registry"
+	configMapName    = "registry-config"
 )
 
 var (
@@ -58,6 +69,58 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 	if err != nil {
 		return err
 	}
+
+	// Install cert-manager and create TLS certificate
+	logger.Debug("Installing cert-manager")
+	if err := certmanager.InstallCertManager(ctx, configClient); err != nil {
+		logger.Warnf("Failed to install cert-manager: %v", err)
+	} else {
+		logger.Debug("cert-manager installed")
+
+		logger.Debug("Creating self-signed issuer")
+		if err := certmanager.CreateSelfSignedIssuer(ctx, configClient); err != nil {
+			logger.Warnf("Failed to create self-signed issuer: %v", err)
+		}
+	}
+
+	// Create namespace first so we can create the certificate
+	err = namespace.CreateNamespace(ctx, configClient)
+	if err != nil {
+		return err
+	}
+
+	// Create registry TLS certificate
+	logger.Debug("Creating registry TLS certificate")
+	if err := certmanager.CreateRegistryCertificate(ctx, configClient); err != nil {
+		logger.Warnf("Failed to create registry certificate: %v", err)
+	}
+
+	// Create ConfigMap with registry configuration for dual HTTP/HTTPS
+	registryConfig := `version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+  tls:
+    certificate: /certs/tls.crt
+    key: /certs/tls.key
+`
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: namespace.Namespace,
+		},
+		Data: map[string]string{
+			"config.yml": registryConfig,
+		},
+	}
+
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      deployName,
@@ -83,6 +146,38 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 									ContainerPort: deployPort,
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      tlsVolumeName,
+									MountPath: tlsMountPath,
+									ReadOnly:  true,
+								},
+								{
+									Name:      configVolumeName,
+									MountPath: configMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: tlsVolumeName,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: certmanager.GetRegistrySecretName(),
+								},
+							},
+						},
+						{
+							Name: configVolumeName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: configMapName,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -100,25 +195,20 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			Selector: deploy.Spec.Selector.MatchLabels,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "oci",
+					Name:       "oci-tls",
 					Protocol:   corev1.ProtocolTCP,
-					Port:       svcPort,
+					Port:       svcPortTLS,
 					TargetPort: intstr.FromInt(deployPort),
 				},
 			},
 		},
 	}
 
-	err = namespace.CreateNamespace(ctx, configClient)
-	if err != nil {
-		return err
-	}
-
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	appsv1.AddToScheme(scheme)
 	ctrlClient, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
-	for _, res := range []ctrl.Object{deploy, svc} {
+	for _, res := range []ctrl.Object{configMap, deploy, svc} {
 		_, err := controllerutil.CreateOrUpdate(ctx, ctrlClient, res, func() error { return nil })
 		if err != nil {
 			return err
@@ -263,7 +353,11 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 			close(stopChan)
 			return
 		}
-		err = remote.Write(ref, image)
+		// Use insecure transport for self-signed certificate
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		err = remote.Write(ref, image, remote.WithTransport(transport))
 		if err != nil {
 			logger.Error(err)
 			close(stopChan)
@@ -346,13 +440,17 @@ func ListLocalRegistryTags(ctx context.Context, imageName string, config *rest.C
 		}
 		repoName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
 		logger.Debugf("Listing tags for repository: %s", repoName)
-		repo, err := name.NewRepository(repoName, name.Insecure)
+		repo, err := name.NewRepository(repoName)
 		if err != nil {
 			listErr = err
 			close(stopChan)
 			return
 		}
-		tags, listErr = remote.List(repo)
+		// Use insecure transport for self-signed certificate
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		tags, listErr = remote.List(repo, remote.WithTransport(transport))
 		if listErr != nil {
 			logger.Debugf("Failed to list tags: %v", listErr)
 		}
