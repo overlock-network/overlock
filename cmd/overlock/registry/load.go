@@ -6,22 +6,34 @@ import (
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/web-seven/overlock/internal/loader"
-	"github.com/web-seven/overlock/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/loader"
+	"github.com/web-seven/overlock/pkg/registry"
 )
 
 const tagDelim = ":"
+
+// Helm OCI media types
+const (
+	HelmConfigMediaType  = "application/vnd.cncf.helm.config.v1+json"
+	HelmContentMediaType = "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+	OCIManifestSchema1   = "application/vnd.oci.image.manifest.v1+json"
+)
 
 type loadImageCmd struct {
 	Registry string `arg:"" help:"Name of the registry to load the image to."`
 	Path     string `arg:"" help:"Path to OCI image TAR archive."`
 	Name     string `required:"" short:"i" help:"Image name and tag (e.g., my-image:1.0)."`
 	Upgrade  bool   `help:"Upgrade patch version if image exists."`
+	Helm     bool   `help:"Add Helm chart OCI manifest layers with proper media types."`
 }
 
 func (c *loadImageCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
@@ -41,10 +53,21 @@ func (c *loadImageCmd) Run(ctx context.Context, client *kubernetes.Clientset, co
 		}
 	}
 
-	// Load image from TAR archive
-	image, err := loader.LoadPathArchive(c.Path)
-	if err != nil {
-		return fmt.Errorf("failed to load image from archive: %w", err)
+	var image regv1.Image
+
+	if c.Helm {
+		// For Helm charts, create OCI image from empty base with chart as layer
+		logger.Debug("Creating Helm chart OCI image from empty base")
+		image, err = createHelmImage(c.Path)
+		if err != nil {
+			return fmt.Errorf("failed to create Helm image: %w", err)
+		}
+	} else {
+		// Load image from TAR archive
+		image, err = loader.LoadPathArchive(c.Path)
+		if err != nil {
+			return fmt.Errorf("failed to load image from archive: %w", err)
+		}
 	}
 
 	imageName := c.Name
@@ -120,4 +143,41 @@ func (c *loadImageCmd) upgradeImageVersion(ctx context.Context, config *rest.Con
 // Image wraps regv1.Image for registry operations
 type Image struct {
 	regv1.Image
+}
+
+// createHelmImage creates an OCI image from a Helm chart archive with proper media types
+func createHelmImage(chartPath string) (regv1.Image, error) {
+	// Start with empty OCI base image
+	img, err := crane.Append(empty.Image, chartPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append chart layer to empty image: %w", err)
+	}
+
+	// Get the layer we just added
+	layers, err := img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image layers: %w", err)
+	}
+
+	if len(layers) == 0 {
+		return nil, fmt.Errorf("no layers found in image")
+	}
+
+	// Rebuild image with Helm-specific media types
+	// Start fresh with empty image and Helm config media type
+	baseImg := mutate.ConfigMediaType(empty.Image, HelmConfigMediaType)
+
+	// Add the chart layer with Helm content media type
+	img, err = mutate.Append(baseImg, mutate.Addendum{
+		Layer:     layers[len(layers)-1],
+		MediaType: HelmContentMediaType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to append layer with Helm media type: %w", err)
+	}
+
+	// Set the manifest media type to OCI
+	img = mutate.MediaType(img, OCIManifestSchema1)
+
+	return img, nil
 }
