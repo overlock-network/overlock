@@ -36,20 +36,23 @@ import (
 )
 
 const (
-	deployName       = "overlock-registry"
-	svcName          = "registry"
-	deployPort       = 5000
-	deployPortTLS    = 5443
-	svcPort          = 80
-	svcPortTLS       = 443
-	nodePort         = 30100
-	tlsCertPath      = "/certs/tls.crt"
-	tlsKeyPath       = "/certs/tls.key"
-	tlsVolumeName    = "registry-tls"
-	tlsMountPath     = "/certs"
-	configVolumeName = "registry-config"
-	configMountPath  = "/etc/docker/registry"
-	configMapName    = "registry-config"
+	deployName          = "overlock-registry"
+	svcName             = "registry"
+	deployPort          = 5000
+	nginxPortHTTP       = 80
+	nginxPortHTTPS      = 443
+	svcPort             = 80
+	svcPortTLS          = 443
+	nodePort            = 30100
+	tlsCertPath         = "/certs/tls.crt"
+	tlsKeyPath          = "/certs/tls.key"
+	tlsVolumeName       = "registry-tls"
+	tlsMountPath        = "/certs"
+	configVolumeName    = "registry-config"
+	configMountPath     = "/etc/docker/registry"
+	configMapName       = "registry-config"
+	nginxConfigMapName  = "nginx-proxy-config"
+	nginxConfigMountPath = "/etc/nginx/conf.d"
 )
 
 var (
@@ -95,7 +98,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 		logger.Warnf("Failed to create registry certificate: %v", err)
 	}
 
-	// Create ConfigMap with registry configuration for dual HTTP/HTTPS
+	// Create ConfigMap with registry configuration (HTTP only, nginx handles TLS)
 	registryConfig := `version: 0.1
 log:
   fields:
@@ -107,9 +110,6 @@ storage:
     enabled: true
 http:
   addr: :5000
-  tls:
-    certificate: /certs/tls.crt
-    key: /certs/tls.key
 `
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -118,6 +118,50 @@ http:
 		},
 		Data: map[string]string{
 			"config.yml": registryConfig,
+		},
+	}
+
+	// Create nginx reverse proxy ConfigMap for HTTP and HTTPS
+	nginxConfig := `server {
+    listen 80;
+    server_name _;
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 900;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name _;
+    client_max_body_size 0;
+
+    ssl_certificate /certs/tls.crt;
+    ssl_certificate_key /certs/tls.key;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 900;
+    }
+}
+`
+	nginxConfigMap := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      nginxConfigMapName,
+			Namespace: namespace.Namespace,
+		},
+		Data: map[string]string{
+			"default.conf": nginxConfig,
 		},
 	}
 
@@ -148,13 +192,36 @@ http:
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
+									Name:      configVolumeName,
+									MountPath: configMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+						{
+							Name:  "nginx",
+							Image: "nginx:alpine",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: nginxPortHTTP,
+								},
+								{
+									Name:          "https",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: nginxPortHTTPS,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
 									Name:      tlsVolumeName,
 									MountPath: tlsMountPath,
 									ReadOnly:  true,
 								},
 								{
-									Name:      configVolumeName,
-									MountPath: configMountPath,
+									Name:      "nginx-config",
+									MountPath: nginxConfigMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -179,6 +246,16 @@ http:
 								},
 							},
 						},
+						{
+							Name: "nginx-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: nginxConfigMapName,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -195,10 +272,16 @@ http:
 			Selector: deploy.Spec.Selector.MatchLabels,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "oci-tls",
+					Name:       "http",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       svcPort,
+					TargetPort: intstr.FromInt(nginxPortHTTP),
+				},
+				{
+					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       svcPortTLS,
-					TargetPort: intstr.FromInt(deployPort),
+					TargetPort: intstr.FromInt(nginxPortHTTPS),
 				},
 			},
 		},
@@ -208,7 +291,7 @@ http:
 	corev1.AddToScheme(scheme)
 	appsv1.AddToScheme(scheme)
 	ctrlClient, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
-	for _, res := range []ctrl.Object{configMap, deploy, svc} {
+	for _, res := range []ctrl.Object{configMap, nginxConfigMap, deploy, svc} {
 		_, err := controllerutil.CreateOrUpdate(ctx, ctrlClient, res, func() error { return nil })
 		if err != nil {
 			return err
