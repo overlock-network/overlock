@@ -15,17 +15,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/web-seven/overlock/internal/loader"
 	"github.com/web-seven/overlock/pkg/registry"
 )
 
 const tagDelim = ":"
 
-// Helm OCI media types
+// OCI media types
 const (
 	HelmConfigMediaType  = "application/vnd.cncf.helm.config.v1+json"
 	HelmContentMediaType = "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
 	OCIManifestSchema1   = "application/vnd.oci.image.manifest.v1+json"
+	OCIConfigMediaType   = "application/vnd.oci.image.config.v1+json"
+	OCILayerMediaType    = "application/vnd.oci.image.layer.v1.tar+gzip"
 )
 
 type loadImageCmd struct {
@@ -55,19 +56,11 @@ func (c *loadImageCmd) Run(ctx context.Context, client *kubernetes.Clientset, co
 
 	var image regv1.Image
 
-	if c.Helm {
-		// For Helm charts, create OCI image from empty base with chart as layer
-		logger.Debug("Creating Helm chart OCI image from empty base")
-		image, err = createHelmImage(c.Path)
-		if err != nil {
-			return fmt.Errorf("failed to create Helm image: %w", err)
-		}
-	} else {
-		// Load image from TAR archive
-		image, err = loader.LoadPathArchive(c.Path)
-		if err != nil {
-			return fmt.Errorf("failed to load image from archive: %w", err)
-		}
+	// Always create OCI image from empty base with archive as layer
+	logger.Debug("Creating OCI image from empty base")
+	image, err = createOCIImage(c.Path, c.Helm)
+	if err != nil {
+		return fmt.Errorf("failed to create OCI image: %w", err)
 	}
 
 	imageName := c.Name
@@ -145,12 +138,13 @@ type Image struct {
 	regv1.Image
 }
 
-// createHelmImage creates an OCI image from a Helm chart archive with proper media types
-func createHelmImage(chartPath string) (regv1.Image, error) {
-	// Start with empty OCI base image
-	img, err := crane.Append(empty.Image, chartPath)
+// createOCIImage creates an OCI image from an archive with empty base layer
+// If helm is true, applies Helm-specific media types
+func createOCIImage(archivePath string, helm bool) (regv1.Image, error) {
+	// Start with empty OCI base image and append the archive as a layer
+	img, err := crane.Append(empty.Image, archivePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to append chart layer to empty image: %w", err)
+		return nil, fmt.Errorf("failed to append layer to empty image: %w", err)
 	}
 
 	// Get the layer we just added
@@ -163,21 +157,37 @@ func createHelmImage(chartPath string) (regv1.Image, error) {
 		return nil, fmt.Errorf("no layers found in image")
 	}
 
-	// Rebuild image with Helm-specific media types
-	// Start fresh with empty image and Helm config media type
-	baseImg := mutate.ConfigMediaType(empty.Image, HelmConfigMediaType)
+	if helm {
+		// Rebuild image with Helm-specific media types
+		baseImg := mutate.ConfigMediaType(empty.Image, HelmConfigMediaType)
 
-	// Add the chart layer with Helm content media type
-	img, err = mutate.Append(baseImg, mutate.Addendum{
-		Layer:     layers[len(layers)-1],
-		MediaType: HelmContentMediaType,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to append layer with Helm media type: %w", err)
+		// Add the layer with Helm content media type
+		img, err = mutate.Append(baseImg, mutate.Addendum{
+			Layer:     layers[len(layers)-1],
+			MediaType: HelmContentMediaType,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to append layer with Helm media type: %w", err)
+		}
+
+		// Set the manifest media type to OCI
+		img = mutate.MediaType(img, OCIManifestSchema1)
+	} else {
+		// Use standard OCI media types
+		baseImg := mutate.ConfigMediaType(empty.Image, OCIConfigMediaType)
+
+		// Add the layer with standard OCI layer media type
+		img, err = mutate.Append(baseImg, mutate.Addendum{
+			Layer:     layers[len(layers)-1],
+			MediaType: OCILayerMediaType,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to append layer: %w", err)
+		}
+
+		// Set the manifest media type to OCI
+		img = mutate.MediaType(img, OCIManifestSchema1)
 	}
-
-	// Set the manifest media type to OCI
-	img = mutate.MediaType(img, OCIManifestSchema1)
 
 	return img, nil
 }
