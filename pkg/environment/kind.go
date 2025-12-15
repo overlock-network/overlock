@@ -37,6 +37,19 @@ type KindPortMapping struct {
 }
 
 func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, error) {
+	// Check if cluster already exists
+	checkCmd := exec.Command("kind", "get", "clusters")
+	output, err := checkCmd.Output()
+	if err == nil {
+		clusters := strings.Split(string(output), "\n")
+		for _, cluster := range clusters {
+			if strings.TrimSpace(cluster) == e.name {
+				logger.Infof("Environment '%s' already exists. Using existing environment.", e.name)
+				return e.KindContextName(), nil
+			}
+		}
+	}
+
 	var cmd *exec.Cmd
 
 	if e.engineConfig != "" {
