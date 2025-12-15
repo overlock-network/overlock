@@ -61,7 +61,31 @@ Create and manage Crossplane-enabled Kubernetes environments:
 # Create new environment
 overlock environment create <name>
 
-# List all environments  
+# Create with specific engine (kind, k3s, k3d)
+overlock environment create <name> --engine=k3d
+
+# Create with port mappings
+overlock environment create <name> --http-port=8080 --https-port=8443
+
+# Create with pre-installed packages
+overlock environment create <name> \
+  --providers=xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0 \
+  --configurations=xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31 \
+  --functions=xpkg.upbound.io/crossplane-contrib/function-patch-and-transform:v0.8.2
+
+# Create with custom engine configuration
+overlock environment create <name> --engine=kind --engine-config=./kind-config.yaml
+
+# Create with mount path
+overlock environment create <name> --mount-path=/path/to/storage
+
+# Create with admin service account
+overlock environment create <name> --create-admin-service-account
+
+# Create from configuration file
+overlock environment create <name> --config=./overlock.yaml
+
+# List all environments
 overlock environment list
 
 # Start/stop environments
@@ -75,6 +99,22 @@ overlock environment upgrade <name>
 overlock environment delete <name>
 ```
 
+**Environment create options:**
+| Option | Description |
+|--------|-------------|
+| `--config` | Path to Overlock configuration file (defaults to ./overlock.yaml) |
+| `-p, --http-port` | HTTP host port for mapping (default: 80) |
+| `-s, --https-port` | HTTPS host port for mapping (default: 443) |
+| `-c, --context` | Kubernetes context to use |
+| `-e, --engine` | Kubernetes engine: kind, k3s, k3d (default: kind) |
+| `--engine-config` | Path to engine configuration file (kind only) |
+| `--mount-path` | Path for mount to /storage host directory |
+| `--providers` | Comma-separated list of providers to install |
+| `--configurations` | Comma-separated list of configurations to install |
+| `--functions` | Comma-separated list of functions to install |
+| `--create-admin-service-account` | Create admin service account with cluster-admin privileges |
+| `--admin-service-account-name` | Name for admin service account (default: overlock-admin) |
+
 ### Provider Management
 
 Install and manage cloud providers (GCP, AWS, Azure, etc.):
@@ -86,8 +126,14 @@ overlock provider install <provider-url>
 # List installed providers
 overlock provider list
 
-# Load provider from local file
-overlock provider load <name>
+# Load provider from local archive
+overlock provider load <name> --path=./provider.xpkg
+
+# Load and apply provider
+overlock provider load <name> --path=./provider.xpkg --apply
+
+# Load and upgrade existing provider
+overlock provider load <name> --path=./provider.xpkg --apply --upgrade
 
 # Serve provider for development (with live reload)
 overlock provider serve <path> <main-path>
@@ -95,6 +141,13 @@ overlock provider serve <path> <main-path>
 # Remove provider
 overlock provider delete <provider-url>
 ```
+
+**Provider load options:**
+| Option | Description |
+|--------|-------------|
+| `--path` | Path to provider package archive |
+| `--apply` | Apply provider after loading |
+| `--upgrade` | Upgrade existing provider |
 
 ### Configuration Management
 
@@ -104,14 +157,29 @@ Manage Crossplane configurations that define infrastructure patterns:
 # Apply configuration from URL
 overlock configuration apply <url>
 
+# Apply and wait for installation
+overlock configuration apply <url> --wait
+
+# Apply with timeout
+overlock configuration apply <url> --wait --timeout=5m
+
 # Apply multiple configurations
 overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31,xpkg.upbound.io/devops-toolkit/dot-sql:v3.0.31
 
 # List configurations
 overlock configuration list
 
-# Load from local file
-overlock configuration load <name>
+# Load from local archive
+overlock configuration load <name> --path=./config.xpkg
+
+# Load from STDIN
+cat config.xpkg | overlock configuration load <name> --stdin
+
+# Load and apply configuration
+overlock configuration load <name> --path=./config.xpkg --apply
+
+# Load and upgrade existing configuration
+overlock configuration load <name> --path=./config.xpkg --apply --upgrade
 
 # Serve for development (with live reload)
 overlock configuration serve <path>
@@ -119,6 +187,20 @@ overlock configuration serve <path>
 # Delete configuration
 overlock configuration delete xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
 ```
+
+**Configuration apply options:**
+| Option | Description |
+|--------|-------------|
+| `-w, --wait` | Wait until configuration is installed |
+| `-t, --timeout` | Timeout for waiting (e.g., 5m, 300s) |
+
+**Configuration load options:**
+| Option | Description |
+|--------|-------------|
+| `--path` | Path to configuration package archive |
+| `--stdin` | Load configuration package from STDIN |
+| `--apply` | Apply configuration after loading |
+| `--upgrade` | Upgrade existing configuration |
 
 ### Function Management
 
@@ -128,14 +210,29 @@ Manage Crossplane functions for custom composition logic:
 # Apply function from URL
 overlock function apply <url>
 
+# Apply and wait for installation
+overlock function apply <url> --wait
+
+# Apply with timeout
+overlock function apply <url> --wait --timeout=5m
+
 # Apply multiple functions
 overlock function apply <url1>,<url2>
 
 # List functions
 overlock function list
 
-# Load from local file
-overlock function load <name>
+# Load from local archive
+overlock function load <name> --path=./function.xpkg
+
+# Load from STDIN
+cat function.xpkg | overlock function load <name> --stdin
+
+# Load and apply function
+overlock function load <name> --path=./function.xpkg --apply
+
+# Load and upgrade existing function
+overlock function load <name> --path=./function.xpkg --apply --upgrade
 
 # Serve for development (with live reload)
 overlock function serve <path>
@@ -143,6 +240,20 @@ overlock function serve <path>
 # Delete function
 overlock function delete <url>
 ```
+
+**Function apply options:**
+| Option | Description |
+|--------|-------------|
+| `-w, --wait` | Wait until function is installed |
+| `-t, --timeout` | Timeout for waiting (e.g., 5m, 300s) |
+
+**Function load options:**
+| Option | Description |
+|--------|-------------|
+| `--path` | Path to function package archive |
+| `--stdin` | Load function package from STDIN |
+| `--apply` | Apply function after loading |
+| `--upgrade` | Upgrade existing function |
 
 ### Registry Management
 
@@ -158,12 +269,42 @@ overlock registry create --registry-server=<url> \
                         --password=<pass> \
                         --email=<email>
 
+# Create registry in specific context
+overlock registry create --local --context=my-cluster
+
 # List registries
 overlock registry list
+
+# Load OCI image to registry
+overlock registry load-image <registry> <path> --name=my-image:1.0
+
+# Load image with auto version upgrade
+overlock registry load-image <registry> <path> --name=my-image:1.0 --upgrade
+
+# Load Helm chart to registry
+overlock registry load-image <registry> <path> --name=my-chart:1.0 --helm
 
 # Delete registry
 overlock registry delete
 ```
+
+**Registry create options:**
+| Option | Description |
+|--------|-------------|
+| `--registry-server` | Private registry FQDN |
+| `--username` | Registry username |
+| `--password` | Registry password |
+| `--email` | Registry email |
+| `--default` | Set registry as default |
+| `--local` | Create local registry |
+| `-c, --context` | Kubernetes context for registry |
+
+**Registry load-image options:**
+| Option | Description |
+|--------|-------------|
+| `-i, --name` | Image name and tag (e.g., my-image:1.0) |
+| `--upgrade` | Upgrade patch version if image exists |
+| `--helm` | Add Helm chart OCI manifest layers |
 
 ### Resource Management
 
@@ -177,7 +318,21 @@ overlock resource create <type>
 overlock resource list
 
 # Apply resources from file
-overlock resource apply <file.yaml>
+overlock resource apply --file=<file.yaml>
+```
+
+**Resource apply options:**
+| Option | Description |
+|--------|-------------|
+| `-f, --file` | YAML file containing Overlock resources to apply |
+
+### Shell Completions
+
+Install shell completions for your preferred shell:
+
+```bash
+# Install shell completions
+overlock install-completions
 ```
 
 ## Configuration
@@ -245,7 +400,7 @@ overlock provider list
 overlock configuration list
 
 # Apply your infrastructure definitions
-overlock resource apply ./infrastructure.yaml
+overlock resource apply --file=./infrastructure.yaml
 ```
 
 ### Local Package Development
@@ -260,7 +415,7 @@ overlock provider serve ./my-provider ./cmd/provider &
 overlock function serve ./my-function &
 
 # Test your packages
-overlock resource apply ./test-resources.yaml
+overlock resource apply --file=./test-resources.yaml
 
 # Packages automatically reload when you modify code
 ```
