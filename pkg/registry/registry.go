@@ -102,6 +102,9 @@ func NewLocal() Registry {
 		Name:    LocalRegistryName,
 	}
 	registry.Server = registry.LocalDomain()
+	registry.Secret.Annotations = map[string]string{
+		RegistryServerLabel: registry.Server,
+	}
 	return registry
 }
 
@@ -116,9 +119,6 @@ func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, l
 		if err != nil {
 			return err
 		}
-	}
-	if r.Exists(ctx, client) {
-		return fmt.Errorf("secret for this registry server already exists")
 	}
 	return nil
 }

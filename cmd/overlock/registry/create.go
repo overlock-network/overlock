@@ -32,6 +32,12 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 	reg.SetDefault(c.Default)
 	reg.SetLocal(c.Local)
 	reg.WithContext(c.Context)
+
+	if reg.Exists(ctx, client) {
+		logger.Infof("Registry '%s' already exists. Using existing registry.", reg.Name)
+		return nil
+	}
+
 	err := reg.Validate(ctx, client, logger)
 	if err != nil {
 		return err
