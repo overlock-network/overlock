@@ -162,7 +162,7 @@ nodeRegistration:
 	if e.mountPath != "" {
 		template.Nodes[0].ExtraMounts = append(template.Nodes[0].ExtraMounts, KindMount{
 			HostPath:      e.mountPath,
-			ContainerPath: "/storage",
+			ContainerPath: e.containerPath,
 		})
 	}
 
