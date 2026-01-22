@@ -2,6 +2,34 @@
 
 set -eu
 
+# Parse command line arguments
+VERSION=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -v|--version)
+      VERSION="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [options]"
+      echo ""
+      echo "Options:"
+      echo "  -v, --version VERSION    Install specific version (e.g., 0.11.0-beta.11)"
+      echo "  -h, --help               Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0                       # Install latest version"
+      echo "  $0 -v 0.11.0-beta.11     # Install version 0.11.0-beta.11"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use -h or --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
 os=$(uname -s)
 arch=$(uname -m)
 OS=${OS:-"${os}"}
@@ -17,7 +45,10 @@ unsupported_arch() {
   exit 1
 }
 
-VERSION=$(curl --silent "https://api.github.com/repos/overlock-network/overlock/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# If no version specified, get the latest release
+if [ -z "$VERSION" ]; then
+  VERSION=$(curl --silent "https://api.github.com/repos/overlock-network/overlock/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+fi
 
 case $OS in
   CYGWIN* | MINGW64* | Windows*)

@@ -25,8 +25,15 @@ Overlock is a CLI tool that simplifies Crossplane development and testing. It ha
 
 ### Install Overlock
 
+Install the latest version:
 ```bash
 curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+sudo mv overlock /usr/local/bin/
+```
+
+Install a specific version:
+```bash
+curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh -s -- -v 0.11.0-beta.11
 sudo mv overlock /usr/local/bin/
 ```
 
