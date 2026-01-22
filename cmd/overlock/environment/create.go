@@ -26,6 +26,7 @@ type createOptions struct {
 	Engine                    string   `optional:"" short:"e" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 	EngineConfig              string   `optional:"" help:"Path to the configuration file for the engine. Currently supported for kind clusters."`
 	MountPath                 string   `optional:"" help:"Path for mount to /storage host directory. By default no mounts."`
+	ContainerPath             string   `optional:"" help:"Container mount path for the volume." default:"/storage"`
 	Providers                 []string `optional:"" help:"List of providers to apply to the environment."`
 	Configurations            []string `optional:"" help:"List of configurations to apply to the environment."`
 	Functions                 []string `optional:"" help:"List of functions to apply to the environment."`
@@ -67,6 +68,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithHttpsPort(c.HttpsPort).
 		WithContext(c.Context).
 		WithMountPath(c.MountPath).
+		WithContainerPath(c.ContainerPath).
 		WithEngineConfig(c.EngineConfig).
 		WithProviders(c.Providers).
 		WithConfigurations(c.Configurations).

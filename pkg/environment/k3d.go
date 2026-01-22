@@ -25,7 +25,7 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, e
 	}
 
 	if e.mountPath != "" {
-		args = append(args, "-v", e.mountPath+":/storage")
+		args = append(args, "-v", e.mountPath+":"+e.containerPath)
 	}
 
 	cmd := exec.Command("k3d", args...)
