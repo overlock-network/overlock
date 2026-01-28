@@ -1,4 +1,7 @@
 [![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/W7AsrUb5GC)
+[![Go Version](https://img.shields.io/badge/Go-1.24.0+-00ADD8?logo=go)](https://golang.org/doc/install)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/overlock-network/overlock)](https://github.com/overlock-network/overlock/releases)
 
 <p align="center">
   <img width="500" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
@@ -6,41 +9,30 @@
 
 # Overlock
 
-Overlock is a CLI tool that simplifies Crossplane development and testing. It handles the complexity of setting up Crossplane environments, making it easy for developers to build, test, and deploy infrastructure-as-code solutions.
+**Simplify Crossplane development and testing with a powerful CLI toolkit.**
 
-## Key Features
+Overlock handles the complexity of setting up Crossplane environments, making it easy for developers to build, test, and deploy infrastructure-as-code solutions. Get a fully configured Crossplane environment running in minutes, not hours.
 
-- **Quick Environment Setup**: Create fully configured Crossplane environments with a single command
-- **Multi-Engine Support**: Works with KinD, K3s, and K3d Kubernetes distributions
-- **Package Management**: Install and manage Crossplane configurations, providers, and functions
-- **Development Workflow**: Live-reload support for local package development
-- **Registry Integration**: Support for both local and remote package registries
+## Table of Contents
 
-## Installation
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Documentation](#documentation)
+- [Architecture Overview](#architecture-overview)
+- [Ecosystem Comparison](#ecosystem-comparison)
+- [Community](#community)
+- [Contributing](#contributing)
+- [License](#license)
 
-### Prerequisites
+## Features
 
-- Docker (required for creating Kubernetes clusters)
-- One of: KinD, K3s, or K3d (choose based on your preference)
-
-### Install Overlock
-
-Install the latest version:
-```bash
-curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
-sudo mv overlock /usr/local/bin/
-```
-
-Install a specific version:
-```bash
-curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh -s -- -v 0.11.0-beta.11
-sudo mv overlock /usr/local/bin/
-```
-
-Verify installation:
-```bash
-overlock --version
-```
+- **⚡ Quick Environment Setup** - Create fully configured Crossplane environments with a single command
+- **🎯 Multi-Engine Support** - Works seamlessly with KinD, K3s, and K3d Kubernetes distributions
+- **📦 Package Management** - Install and manage Crossplane configurations, providers, and functions
+- **🔄 Live Development** - Hot-reload support for local package development
+- **🏗️ Registry Integration** - Support for both local and remote package registries
+- **🔌 Plugin System** - Extensible architecture for custom functionality
 
 ## Quick Start
 
@@ -48,7 +40,7 @@ overlock --version
 # Create a new Crossplane environment
 overlock environment create my-dev-env
 
-# Install GCP provider
+# Install a cloud provider (GCP example)
 overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
 
 # Apply a configuration
@@ -58,279 +50,167 @@ overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0
 overlock environment list
 ```
 
-## Command Reference
+That's it! You now have a fully functional Crossplane environment ready for development.
 
-### Environment Management
+## Installation
 
-Create and manage Crossplane-enabled Kubernetes environments:
+### Prerequisites
 
+- **Docker** (required for creating Kubernetes clusters)
+- One of: **KinD**, **K3s**, or **K3d** (choose based on your preference)
+
+### Install Overlock
+
+**Latest version:**
 ```bash
-# Create new environment
-overlock environment create <name>
-
-# List all environments  
-overlock environment list
-
-# Start/stop environments
-overlock environment start <name>
-overlock environment stop <name>
-
-# Upgrade environment to latest Crossplane
-overlock environment upgrade <name>
-
-# Delete environment
-overlock environment delete <name>
+curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+sudo mv overlock /usr/local/bin/
 ```
 
-### Provider Management
-
-Install and manage cloud providers (GCP, AWS, Azure, etc.):
-
+**Specific version:**
 ```bash
-# Install provider from repository
-overlock provider install <provider-url>
-
-# List installed providers
-overlock provider list
-
-# Load provider from local file
-overlock provider load <name>
-
-# Serve provider for development (with live reload)
-overlock provider serve <path> <main-path>
-
-# Remove provider
-overlock provider delete <provider-url>
+curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh -s -- -v 0.11.0-beta.11
+sudo mv overlock /usr/local/bin/
 ```
 
-### Configuration Management
-
-Manage Crossplane configurations that define infrastructure patterns:
-
+**Verify installation:**
 ```bash
-# Apply configuration from URL
-overlock configuration apply <url>
-
-# Apply multiple configurations
-overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31,xpkg.upbound.io/devops-toolkit/dot-sql:v3.0.31
-
-# List configurations
-overlock configuration list
-
-# Load from local file
-overlock configuration load <name>
-
-# Serve for development (with live reload)
-overlock configuration serve <path>
-
-# Delete configuration
-overlock configuration delete xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
+overlock --version
 ```
 
-### Function Management
-
-Manage Crossplane functions for custom composition logic:
+### Building from Source
 
 ```bash
-# Apply function from URL
-overlock function apply <url>
-
-# Apply multiple functions
-overlock function apply <url1>,<url2>
-
-# List functions
-overlock function list
-
-# Load from local file
-overlock function load <name>
-
-# Serve for development (with live reload)
-overlock function serve <path>
-
-# Delete function
-overlock function delete <url>
+git clone https://github.com/overlock-network/overlock.git
+cd overlock
+go build -o overlock ./cmd/overlock
 ```
 
-### Registry Management
+See the [Development Guide](docs/development.md) for detailed build instructions.
 
-Configure package registries for storing and distributing Crossplane packages:
+## Documentation
 
-```bash
-# Create local registry
-overlock registry create --local --default
+### User Guides
 
-# Create remote registry connection
-overlock registry create --registry-server=<url> \
-                        --username=<user> \
-                        --password=<pass> \
-                        --email=<email>
+- **[Command Reference](docs/commands.md)** - Complete CLI command documentation
+- **[Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
+- **[Usage Examples](docs/examples.md)** - Common workflows and practical examples
+- **[Troubleshooting](docs/troubleshooting.md)** - Solutions to common issues
 
-# List registries
-overlock registry list
+### Developer Resources
 
-# Delete registry
-overlock registry delete
+- **[Development Guide](docs/development.md)** - Building from source, testing, and contributing
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines and code of conduct
+
+### Command Overview
+
+Overlock organizes functionality into intuitive command groups:
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `environment` | `env` | Create and manage Kubernetes environments |
+| `provider` | `prv` | Install and manage cloud providers |
+| `configuration` | `cfg` | Manage Crossplane configurations |
+| `function` | `fnc` | Manage Crossplane functions |
+| `registry` | `reg` | Configure package registries |
+| `resource` | `res` | Create and manage custom resources |
+
+Use `overlock <command> --help` for detailed information on any command.
+
+## Architecture Overview
+
+Overlock is built with a modular architecture designed for extensibility and maintainability:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Overlock CLI                       │
+├─────────────────────────────────────────────────────┤
+│  Environment Manager  │  Package Manager            │
+│  - KinD               │  - Configurations           │
+│  - K3s                │  - Providers                │
+│  - K3d                │  - Functions                │
+├─────────────────────────────────────────────────────┤
+│  Engine Manager       │  Registry Manager           │
+│  - Crossplane Install │  - Local Registries         │
+│  - Helm Integration   │  - Remote Registries        │
+├─────────────────────────────────────────────────────┤
+│  Resource Manager     │  Plugin System              │
+│  - Custom Resources   │  - Dynamic Loading          │
+│  - YAML Processing    │  - Extensibility            │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────┐
+        │    Kubernetes Cluster           │
+        │  (KinD / K3s / K3d)             │
+        │    + Crossplane                 │
+        └─────────────────────────────────┘
 ```
 
-### Resource Management
+### Key Components
 
-Create and manage custom resources:
+- **CLI Framework**: Kong-based command parsing with intuitive subcommands
+- **Engine Management**: Helm-based Crossplane installation and lifecycle
+- **Environment Management**: Multi-engine Kubernetes cluster operations
+- **Package Management**: Crossplane configurations, providers, and functions
+- **Plugin System**: Extensible architecture for custom functionality
 
-```bash
-# Create custom resource definition
-overlock resource create <type>
+For detailed architecture information, see the [Development Guide](docs/development.md).
 
-# List custom resources
-overlock resource list
+## Ecosystem Comparison
 
-# Apply resources from file
-overlock resource apply <file.yaml>
-```
+| Feature | Overlock | kubectl + helm | Crossplane CLI | up CLI |
+|---------|----------|----------------|----------------|--------|
+| Environment creation | ✅ Single command | ❌ Manual setup | ❌ Manual setup | ✅ Automated |
+| Multi-engine support | ✅ KinD/K3s/K3d | ✅ Any K8s | ✅ Any K8s | ⚠️ Limited |
+| Package management | ✅ Built-in | ❌ Manual | ✅ Limited | ✅ Built-in |
+| Live reload dev | ✅ Yes | ❌ No | ❌ No | ⚠️ Partial |
+| Registry support | ✅ Local + Remote | ❌ Manual | ⚠️ Remote only | ✅ Yes |
+| Environment lifecycle | ✅ Full control | ❌ Manual | ❌ Manual | ⚠️ Limited |
+| Plugin system | ✅ Yes | N/A | ❌ No | ❌ No |
 
-## Configuration
+**Why Overlock?**
 
-### Global Options
-
-```bash
-overlock [global-options] <command>
-
-Global Options:
-  -D, --debug                    Enable debug mode
-  -n, --namespace=STRING         Namespace for cluster resources  
-  -r, --engine-release=STRING    Crossplane Helm release name
-  -v, --engine-version=STRING    Crossplane version (default: 1.19.0)
-      --plugin-path=STRING       Path to plugin directory
-```
-
-### Environment Variables
-
-- `OVERLOCK_ENGINE_NAMESPACE`: Default namespace for resources
-- `OVERLOCK_ENGINE_RELEASE`: Default Helm release name  
-- `OVERLOCK_ENGINE_VERSION`: Default Crossplane version
-
-### Command Aliases
-
-All commands support short aliases:
-- `environment` → `env`
-- `configuration` → `cfg`
-- `provider` → `prv`
-- `function` → `fnc`
-- `registry` → `reg`
-- `resource` → `res`
-
-## Usage Examples
-
-### Basic Development Setup
-
-```bash
-# Create development environment
-overlock environment create crossplane-dev
-
-# Set up local registry
-overlock registry create --local --default
-
-# Install commonly used providers
-overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
-overlock provider install xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.14.0
-
-# Apply base configurations
-overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
-```
-
-### Working with GCP Infrastructure
-
-```bash
-# Create GCP-focused environment
-overlock environment create gcp-project
-
-# Install GCP provider and configurations
-overlock provider install xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0
-overlock configuration apply xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31
-
-# Verify setup
-overlock provider list
-overlock configuration list
-
-# Apply your infrastructure definitions
-overlock resource apply ./infrastructure.yaml
-```
-
-### Local Package Development
-
-```bash
-# Create development environment
-overlock environment create package-dev
-
-# Start live development servers (run in separate terminals)
-overlock configuration serve ./my-config-package &
-overlock provider serve ./my-provider ./cmd/provider &
-overlock function serve ./my-function &
-
-# Test your packages
-overlock resource apply ./test-resources.yaml
-
-# Packages automatically reload when you modify code
-```
-
-### Multi-Environment Workflow
-
-```bash
-# Development environment
-overlock environment create dev
-overlock environment start dev
-# ... do development work ...
-overlock environment stop dev
-
-# Testing environment  
-overlock environment create test
-overlock environment start test
-# ... run tests ...
-overlock environment stop test
-
-# Staging environment
-overlock environment create staging
-# ... deploy to staging ...
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Environment creation fails:**
-- Ensure Docker is running
-- Check that your chosen Kubernetes engine (KinD/K3s/K3d) is installed
-- Verify you have sufficient system resources
-
-**Package installation fails:**
-- Check internet connectivity for remote packages
-- Verify package URLs are correct and accessible
-- Use `--debug` flag for detailed error information
-
-**Provider not working:**
-- Ensure provider is properly installed: `overlock provider list`
-- Check provider configuration and credentials (e.g., GCP service account keys)
-- Verify Crossplane version compatibility
-
-### Getting Help
-
-```bash
-# General help
-overlock --help
-
-# Command-specific help
-overlock environment --help
-overlock configuration --help
-
-# Enable debug output
-overlock --debug <command>
-```
+Overlock bridges the gap between simple kubectl/helm workflows and full-featured cloud platforms. It provides:
+- Faster setup than manual kubectl/helm configurations
+- More development-focused features than standard Crossplane CLI
+- Better local development experience than cloud-based solutions
+- Complete control over your development environment
 
 ## Community
 
-- **Discord**: [Join our Discord](https://discord.gg/W7AsrUb5GC) for questions and community support
-- **GitHub**: [Report issues and contribute](https://github.com/overlock-network/overlock)
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines
+### Get Help & Connect
+
+- **💬 Discord**: [Join our Discord](https://discord.gg/W7AsrUb5GC) for questions and community support
+- **🐛 Issues**: [Report bugs or request features](https://github.com/overlock-network/overlock/issues)
+- **📖 Discussions**: [Join discussions](https://github.com/overlock-network/overlock/discussions)
+
+### Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+- Read our [Contributing Guide](CONTRIBUTING.md) to get started
+- Check out [Good First Issues](https://github.com/overlock-network/overlock/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- Review the [Development Guide](docs/development.md) for technical details
+
+### Code of Conduct
+
+We are committed to providing a welcoming and inclusive experience. Please read our Code of Conduct in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Credits
+
+Overlock is built on top of excellent open-source projects:
+- [Crossplane](https://crossplane.io/) - The cloud native control plane framework
+- [Kubernetes](https://kubernetes.io/) - Container orchestration platform
+- [Helm](https://helm.sh/) - The Kubernetes package manager
+- [KinD](https://kind.sigs.k8s.io/), [K3s](https://k3s.io/), [K3d](https://k3d.io/) - Kubernetes engines
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Made with ❤️ by the Overlock community
+</p>
