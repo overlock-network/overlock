@@ -32,7 +32,6 @@ import (
 type Globals struct {
 	Debug         bool        `short:"D" help:"Enable debug mode"`
 	Version       VersionFlag `name:"version" help:"Print version information and quit"`
-	NoBanner      bool        `name:"no-banner" help:"Disable welcome banner"`
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
 	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
@@ -50,12 +49,10 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func getDescriptionText() string {
-	bText := "Crossplane Environment CLI.\n\n"
-	bText += "For more details open https://github.com/overlock-network/overlock \n\n"
-	return bText
+	return displayBanner()
 }
 
-func displayBanner() {
+func displayBanner() string {
 	// Create a box with the banner content
 	bannerContent := pterm.DefaultBox.WithTitle("Overlock").
 		WithTitleTopCenter().
@@ -70,8 +67,7 @@ func displayBanner() {
 			),
 		)
 
-	fmt.Println(bannerContent)
-	fmt.Println()
+	return bannerContent + "\n"
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
@@ -180,7 +176,6 @@ func main() {
 	kongplete.Complete(parser)
 
 	if len(os.Args) == 1 {
-		displayBanner()
 		_, err := parser.Parse([]string{"--help"})
 		parser.FatalIfErrorf(err)
 		return
