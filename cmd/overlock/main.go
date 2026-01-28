@@ -7,6 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/go-logr/logr"
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
@@ -48,9 +49,61 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func getDescriptionText() string {
-	bText := "Crossplane Environment CLI.\n\n"
-	bText += "For more details open https://github.com/overlock-network/overlock \n\n"
-	return bText
+	return ""
+}
+
+// customHelpPrinter prints the banner before showing the standard Kong help
+func customHelpPrinter(options kong.HelpOptions, ctx *kong.Context) error {
+	// Print banner first
+	fmt.Println(displayBanner())
+	// Then print standard help
+	return kong.DefaultHelpPrinter(options, ctx)
+}
+
+func displayBanner() string {
+	// Define styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Cyan
+		Bold(true)
+
+	contentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Light cyan for main text
+		Align(lipgloss.Center)
+
+	versionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // White
+		Align(lipgloss.Center)
+
+	urlStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")). // Gray
+		Align(lipgloss.Center)
+
+	// Create content with proper alignment
+	content := fmt.Sprintf("%s\n\n%s\n%s",
+		contentStyle.Render("Crossplane Environment Management"),
+		versionStyle.Render(fmt.Sprintf("Version: %s", version.Version)),
+		urlStyle.Render("https://github.com/overlock-network/overlock"),
+	)
+
+	// Create the box with fixed width
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("14")). // Cyan
+		Padding(1, 4).
+		Width(60).
+		Align(lipgloss.Center)
+
+	// Create title
+	title := titleStyle.Render("Overlock")
+	titleBox := lipgloss.NewStyle().
+		Align(lipgloss.Center).
+		Width(52). // Width minus padding and border
+		Render(title)
+
+	// Combine title and content
+	bannerContent := boxStyle.Render(titleBox + "\n" + content)
+
+	return bannerContent + "\n"
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
@@ -144,9 +197,7 @@ func main() {
 		append([]kong.Option{
 			kong.Name("overlock"),
 			kong.Description(getDescriptionText()),
-			kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
-				return kong.DefaultHelpPrinter(options, ctx)
-			}),
+			kong.Help(customHelpPrinter),
 			kong.Vars{
 				"version": version.Version,
 				"homedir": homeDir,
