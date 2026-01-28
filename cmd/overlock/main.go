@@ -196,6 +196,7 @@ func main() {
 	kongplete.Complete(parser)
 
 	if len(os.Args) == 1 {
+		displayBanner()
 		_, err := parser.Parse([]string{"--help"})
 		parser.FatalIfErrorf(err)
 		return
