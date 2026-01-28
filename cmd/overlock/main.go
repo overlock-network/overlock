@@ -8,6 +8,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/go-logr/logr"
+	"github.com/pterm/pterm"
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
@@ -31,6 +32,7 @@ import (
 type Globals struct {
 	Debug         bool        `short:"D" help:"Enable debug mode"`
 	Version       VersionFlag `name:"version" help:"Print version information and quit"`
+	NoBanner      bool        `name:"no-banner" help:"Disable welcome banner"`
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
 	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
@@ -51,6 +53,25 @@ func getDescriptionText() string {
 	bText := "Crossplane Environment CLI.\n\n"
 	bText += "For more details open https://github.com/overlock-network/overlock \n\n"
 	return bText
+}
+
+func displayBanner() {
+	// Create a box with the banner content
+	bannerContent := pterm.DefaultBox.WithTitle("Overlock").
+		WithTitleTopCenter().
+		WithRightPadding(4).
+		WithLeftPadding(4).
+		WithBoxStyle(pterm.NewStyle(pterm.FgCyan)).
+		Sprint(
+			pterm.Sprintf("%s\n\n%s\n%s",
+				pterm.FgLightCyan.Sprintf("Crossplane Environment Management"),
+				pterm.FgWhite.Sprintf("Version: %s", version.Version),
+				pterm.FgGray.Sprintf("https://github.com/overlock-network/overlock"),
+			),
+		)
+
+	fmt.Println(bannerContent)
+	fmt.Println()
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
@@ -125,6 +146,22 @@ type cli struct {
 
 type helpCmd struct{}
 
+func shouldDisplayBanner(args []string, noBanner bool) bool {
+	// Don't display banner if --no-banner flag is set
+	if noBanner {
+		return false
+	}
+
+	// Check if help or version flags are present
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" || arg == "--version" {
+			return false
+		}
+	}
+
+	return true
+}
+
 func main() {
 
 	homeDir, err := os.UserHomeDir()
@@ -166,6 +203,11 @@ func main() {
 
 	kongCtx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
+
+	// Display banner after successful parsing, before command execution
+	if shouldDisplayBanner(os.Args[1:], c.Globals.NoBanner) {
+		displayBanner()
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
