@@ -7,8 +7,8 @@ import (
 	"os/signal"
 
 	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/go-logr/logr"
-	"github.com/pterm/pterm"
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
@@ -53,19 +53,47 @@ func getDescriptionText() string {
 }
 
 func displayBanner() string {
-	// Create a box with the banner content
-	bannerContent := pterm.DefaultBox.WithTitle("Overlock").
-		WithTitleTopCenter().
-		WithRightPadding(4).
-		WithLeftPadding(4).
-		WithBoxStyle(pterm.NewStyle(pterm.FgCyan)).
-		Sprint(
-			pterm.Sprintf("%s\n\n%s\n%s",
-				pterm.FgLightCyan.Sprintf("Crossplane Environment Management"),
-				pterm.FgWhite.Sprintf("Version: %s", version.Version),
-				pterm.FgGray.Sprintf("https://github.com/overlock-network/overlock"),
-			),
-		)
+	// Define styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Cyan
+		Bold(true)
+
+	contentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Light cyan for main text
+		Align(lipgloss.Center)
+
+	versionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // White
+		Align(lipgloss.Center)
+
+	urlStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")). // Gray
+		Align(lipgloss.Center)
+
+	// Create content with proper alignment
+	content := fmt.Sprintf("%s\n\n%s\n%s",
+		contentStyle.Render("Crossplane Environment Management"),
+		versionStyle.Render(fmt.Sprintf("Version: %s", version.Version)),
+		urlStyle.Render("https://github.com/overlock-network/overlock"),
+	)
+
+	// Create the box with fixed width
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("14")). // Cyan
+		Padding(1, 4).
+		Width(60).
+		Align(lipgloss.Center)
+
+	// Create title
+	title := titleStyle.Render("Overlock")
+	titleBox := lipgloss.NewStyle().
+		Align(lipgloss.Center).
+		Width(52). // Width minus padding and border
+		Render(title)
+
+	// Combine title and content
+	bannerContent := boxStyle.Render(titleBox + "\n" + content)
 
 	return bannerContent + "\n"
 }
