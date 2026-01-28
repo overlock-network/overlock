@@ -49,7 +49,15 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func getDescriptionText() string {
-	return displayBanner()
+	return ""
+}
+
+// customHelpPrinter prints the banner before showing the standard Kong help
+func customHelpPrinter(options kong.HelpOptions, ctx *kong.Context) error {
+	// Print banner first
+	fmt.Println(displayBanner())
+	// Then print standard help
+	return kong.DefaultHelpPrinter(options, ctx)
 }
 
 func displayBanner() string {
@@ -189,9 +197,7 @@ func main() {
 		append([]kong.Option{
 			kong.Name("overlock"),
 			kong.Description(getDescriptionText()),
-			kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
-				return kong.DefaultHelpPrinter(options, ctx)
-			}),
+			kong.Help(customHelpPrinter),
 			kong.Vars{
 				"version": version.Version,
 				"homedir": homeDir,
