@@ -153,6 +153,7 @@ func main() {
 			},
 			kong.ConfigureHelp(kong.HelpOptions{
 				NoExpandSubcommands: true,
+				Compact:             true,
 			}),
 		}, pluginOptions...)...)
 
