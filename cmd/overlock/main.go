@@ -146,22 +146,6 @@ type cli struct {
 
 type helpCmd struct{}
 
-func shouldDisplayBanner(args []string, noBanner bool) bool {
-	// Don't display banner if --no-banner flag is set
-	if noBanner {
-		return false
-	}
-
-	// Check if help or version flags are present
-	for _, arg := range args {
-		if arg == "--help" || arg == "-h" || arg == "--version" {
-			return false
-		}
-	}
-
-	return true
-}
-
 func main() {
 
 	homeDir, err := os.UserHomeDir()
@@ -204,11 +188,6 @@ func main() {
 
 	kongCtx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
-
-	// Display banner after successful parsing, before command execution
-	if shouldDisplayBanner(os.Args[1:], c.Globals.NoBanner) {
-		displayBanner()
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
