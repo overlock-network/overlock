@@ -152,7 +152,7 @@ func main() {
 				"homedir": homeDir,
 			},
 			kong.ConfigureHelp(kong.HelpOptions{
-				Tree: false,
+				NoExpandSubcommands: true,
 			}),
 		}, pluginOptions...)...)
 
