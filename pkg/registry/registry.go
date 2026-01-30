@@ -17,6 +17,7 @@ import (
 	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -155,18 +156,38 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	}
 
 	secretSpec := r.SecretSpec()
-	_, err = secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
+	secretAlreadyExists := false
 
-	if r.Local {
-		logger.Debug("Creating local registry")
-		err := r.CreateLocal(ctx, client, logger)
+	// Check if secret already exists
+	existingSecret, err := secretClient(client).Get(ctx, secretSpec.Name, metav1.GetOptions{})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		// Secret doesn't exist, create it
+		_, err = secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
-		logger.Debug("Local registry created.")
+		logger.Debugf("Registry secret %s created", secretSpec.Name)
+	} else {
+		logger.Debugf("Registry secret %s already exists, skipping creation", existingSecret.Name)
+		secretAlreadyExists = true
+	}
+
+	if r.Local {
+		// Check if local registry is already running
+		isRunning, err := IsLocalRegistry(ctx, client)
+		if err == nil && isRunning && secretAlreadyExists {
+			logger.Debug("Local registry already exists and is running, skipping creation")
+		} else {
+			logger.Debug("Creating local registry")
+			err := r.CreateLocal(ctx, client, logger)
+			if err != nil {
+				return err
+			}
+			logger.Debug("Local registry created.")
+		}
 	} else {
 		logger.Debug("Creating remote registry")
 		err = r.SetRegistyPullSecret(ctx, config)
