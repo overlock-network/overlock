@@ -155,6 +155,11 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		return err
 	}
 
+	if r.Exists(ctx, client) {
+		logger.Infof("Registry '%s' already exists. Using existing registry.", r.Name)
+		return nil
+	}
+
 	secretSpec := r.SecretSpec()
 	secretAlreadyExists := false
 
