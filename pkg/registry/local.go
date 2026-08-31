@@ -382,6 +382,25 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, e
 }
 
 func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
+	return withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
+		refName := host + "/" + imageName
+		logger.Debugf("Try to push to reference: %s", refName)
+		ref, err := name.ParseReference(refName)
+		if err != nil {
+			return err
+		}
+		if err := remote.Write(ref, image, remote.WithTransport(transport)); err != nil {
+			return err
+		}
+		logger.Debug("Pushed to remote registry.")
+		return nil
+	})
+}
+
+// withLocalRegistryPortForward opens a port-forward session to the in-cluster registry pod
+// and invokes fn once it's ready, passing a "localhost:<port>" address and an insecure
+// transport for the registry's self-signed certificate. It blocks until fn returns.
+func withLocalRegistryPortForward(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, fn func(host string, transport *http.Transport) error) error {
 	client, err := kube.Client(config)
 	if err != nil {
 		return err
@@ -391,6 +410,10 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
 	if err != nil {
 		return err
+	}
+
+	if len(regs.Items) == 0 {
+		return fmt.Errorf("local registry not found")
 	}
 
 	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
@@ -419,40 +442,30 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		return err
 	}
 
+	var fnErr error
 	go func() {
 		for range readyChan {
 		}
 		if len(errOut.String()) != 0 {
-			close(stopChan)
-		} else if len(out.String()) != 0 {
-			logger.Debug(out.String())
-		}
-		refName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
-		logger.Debugf("Try to push to reference: %s", refName)
-		ref, err := name.ParseReference(refName)
-		if err != nil {
-			logger.Error(err)
+			fnErr = fmt.Errorf("port-forward failed: %s", errOut.String())
 			close(stopChan)
 			return
+		}
+		if len(out.String()) != 0 {
+			logger.Debug(out.String())
 		}
 		// Use insecure transport for self-signed certificate
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		err = remote.Write(ref, image, remote.WithTransport(transport))
-		if err != nil {
-			logger.Error(err)
-			close(stopChan)
-			return
-		}
-		logger.Debug("Pushed to remote registry.")
+		fnErr = fn("localhost:"+fmt.Sprint(lPort), transport)
 		close(stopChan)
 	}()
 
 	if err = forwarder.ForwardPorts(); err != nil {
 		return err
 	}
-	return nil
+	return fnErr
 }
 
 func getFreePort() (port int, err error) {
@@ -469,79 +482,39 @@ func getFreePort() (port int, err error) {
 
 // ListLocalRegistryTags lists all tags for an image in the local registry
 func ListLocalRegistryTags(ctx context.Context, imageName string, config *rest.Config, logger *zap.SugaredLogger) ([]string, error) {
-	client, err := kube.Client(config)
-	if err != nil {
-		return nil, err
-	}
-
-	pods := client.CoreV1().Pods(namespace.Namespace)
-	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(regs.Items) == 0 {
-		return nil, fmt.Errorf("local registry not found")
-	}
-
-	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	lPort, err := getFreePort()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("Found local registry with name: %s", regs.Items[0].GetName())
-
-	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", namespace.Namespace, regs.Items[0].GetName())
-	hostIP := strings.TrimLeft(config.Host, "htps:/")
-	serverURL := url.URL{Scheme: "https", Path: path, Host: hostIP}
-
-	logger.Debugf("Dialer server URL: %s", serverURL.String())
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
-	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
-	out, errOut := new(bytes.Buffer), new(bytes.Buffer)
-	forwarder, err := portforward.New(dialer, []string{fmt.Sprint(lPort) + ":" + fmt.Sprint(deployPort)}, stopChan, readyChan, out, errOut)
-	if err != nil {
-		return nil, err
-	}
-
 	var tags []string
-	var listErr error
-
-	go func() {
-		for range readyChan {
-		}
-		if len(errOut.String()) != 0 {
-			close(stopChan)
-			return
-		}
-		repoName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
+	err := withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
+		repoName := host + "/" + imageName
 		logger.Debugf("Listing tags for repository: %s", repoName)
 		repo, err := name.NewRepository(repoName)
 		if err != nil {
-			listErr = err
-			close(stopChan)
-			return
+			return err
 		}
-		// Use insecure transport for self-signed certificate
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		tags, listErr = remote.List(repo, remote.WithTransport(transport))
+		var listErr error
+		tags, listErr = remote.List(repo, remote.WithContext(ctx), remote.WithTransport(transport))
 		if listErr != nil {
 			logger.Debugf("Failed to list tags: %v", listErr)
 		}
-		close(stopChan)
-	}()
+		return listErr
+	})
+	return tags, err
+}
 
-	if err = forwarder.ForwardPorts(); err != nil {
-		return nil, err
-	}
-
-	return tags, listErr
+// CatalogLocalRegistry lists all repositories in the local registry
+func CatalogLocalRegistry(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) ([]string, error) {
+	var repos []string
+	err := withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
+		logger.Debugf("Listing repositories in registry: %s", host)
+		reg, err := name.NewRegistry(host)
+		if err != nil {
+			return err
+		}
+		var catErr error
+		repos, catErr = remote.Catalog(ctx, reg, remote.WithTransport(transport))
+		if catErr != nil {
+			logger.Debugf("Failed to list catalog: %v", catErr)
+		}
+		return catErr
+	})
+	return repos, err
 }

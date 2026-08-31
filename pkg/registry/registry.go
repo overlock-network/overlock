@@ -72,6 +72,31 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 	return registries, nil
 }
 
+// GetRegistry returns the registry with the given name, populated with the fields
+// (Local, Server, Config) that are not carried over by the Secret JSON round-trip in FromSecret.
+func GetRegistry(ctx context.Context, client *kubernetes.Clientset, name string) (*Registry, error) {
+	registries, err := Registries(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range registries {
+		if r.GetName() != name {
+			continue
+		}
+		r.Name = name
+		r.Local = name == LocalRegistryName
+		r.Server = r.Annotations[RegistryServerLabel]
+		if raw, ok := r.Secret.Data[".dockerconfigjson"]; ok {
+			var conf RegistryConfig
+			if err := json.Unmarshal(raw, &conf); err == nil {
+				r.Config = conf
+			}
+		}
+		return r, nil
+	}
+	return nil, fmt.Errorf("registry %q not found", name)
+}
+
 // Creates new Registry by required parameters
 func New(server string, username string, password string, email string) Registry {
 	registry := Registry{

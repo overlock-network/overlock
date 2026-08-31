@@ -14,6 +14,8 @@ type Cmd struct {
 	List      listCmd      `cmd:"" help:"List registries"`
 	Delete    deleteCmd    `cmd:"" help:"Delete registry"`
 	LoadImage loadImageCmd `cmd:"" name:"load-image" help:"Load OCI image to registry"`
+	Catalog   catalogCmd   `cmd:"" help:"List repositories in a registry"`
+	Ls        lsCmd        `cmd:"" help:"List tags of a repository in a registry"`
 }
 
 func Predictors(ctx context.Context, client *kubernetes.Clientset) map[string]complete.Predictor {
